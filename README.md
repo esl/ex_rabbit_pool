@@ -1,11 +1,3 @@
-[![Coverage Status](https://coveralls.io/repos/github/esl/buildex_common/badge.svg?branch=master)](https://coveralls.io/github/esl/buildex_common?branch=master)
-
-[![Build Status](https://travis-ci.com/esl/buildex_common.svg?branch=master)](https://travis-ci.com/esl/buildex_common)
-
-Common utilities and domain objects for the buildex project.
-
-[HexDocs](https://hexdocs.pm/buildex_common)
-[Hex.pm](https://hex.pm/packages/buildex_common)
 
 # ex_rabbitmq_pool
 
@@ -24,6 +16,9 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/bugs_bunny](https://hexdocs.pm/bugs_bunny).
+[![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbitmq_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbitmq_pool?branch=master)
+[![Build Status](https://travis-ci.com/esl/ex_rabbitmq_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbitmq_pool)
+[HexDocs](https://hexdocs.pm/ex_rabbitmq_pool)
+[Hex.pm](https://hex.pm/packages/ex_rabbitmq_pool)
+
+
