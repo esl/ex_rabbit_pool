@@ -1,9 +1,9 @@
-defmodule BugsBunny.Integration.ApiTest do
+defmodule ExRabbitPool.Integration.ApiTest do
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureLog
-  alias BugsBunny.RabbitMQ
-  alias BugsBunny.Worker.RabbitConnection
+  alias ExRabbitPool.RabbitMQ
+  alias ExRabbitPool.Worker.RabbitConnection
 
   @moduletag :integration
 
@@ -32,12 +32,12 @@ defmodule BugsBunny.Integration.ApiTest do
     ]
 
     start_supervised!(%{
-      id: BugsBunny.PoolSupervisorTest,
+      id: ExRabbitPool.PoolSupervisorTest,
       start:
-        {BugsBunny.PoolSupervisor, :start_link,
+        {ExRabbitPool.PoolSupervisor, :start_link,
          [
            [rabbitmq_config: rabbitmq_config, rabbitmq_conn_pool: rabbitmq_conn_pool],
-           BugsBunny.PoolSupervisorTest
+           ExRabbitPool.PoolSupervisorTest
          ]},
       type: :supervisor
     })
@@ -46,14 +46,14 @@ defmodule BugsBunny.Integration.ApiTest do
   end
 
   test "executes command with a channel", %{pool_id: pool_id} do
-    BugsBunny.with_channel(pool_id, fn {:ok, channel} ->
+    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = RabbitMQ.publish(channel, "", "", "hello")
     end)
   end
 
   test "returns out of channels when there aren't more channels", %{pool_id: pool_id} do
-    BugsBunny.with_channel(pool_id, fn {:ok, _channel} ->
-      BugsBunny.with_channel(pool_id, fn {:error, error} ->
+    ExRabbitPool.with_channel(pool_id, fn {:ok, _channel} ->
+      ExRabbitPool.with_channel(pool_id, fn {:error, error} ->
         assert error == :out_of_channels
       end)
     end)
@@ -63,7 +63,7 @@ defmodule BugsBunny.Integration.ApiTest do
     conn_worker = :poolboy.checkout(pool_id)
     :ok = :poolboy.checkin(pool_id, conn_worker)
 
-    BugsBunny.with_channel(pool_id, fn {:ok, _channel} ->
+    ExRabbitPool.with_channel(pool_id, fn {:ok, _channel} ->
       assert %{channels: []} = RabbitConnection.state(conn_worker)
     end)
 
@@ -71,7 +71,7 @@ defmodule BugsBunny.Integration.ApiTest do
   end
 
   test "gets connection to open channel manually", %{pool_id: pool_id} do
-    assert {:ok, conn} = BugsBunny.get_connection(pool_id)
+    assert {:ok, conn} = ExRabbitPool.get_connection(pool_id)
     assert {:ok, channel} = RabbitMQ.open_channel(conn)
     assert :ok = AMQP.Channel.close(channel)
   end
@@ -86,7 +86,7 @@ defmodule BugsBunny.Integration.ApiTest do
 
       {:ok, client_pid} =
         Task.start(fn ->
-          BugsBunny.with_channel(pool_id, fn {:ok, _channel} ->
+          ExRabbitPool.with_channel(pool_id, fn {:ok, _channel} ->
             raise "die"
           end)
         end)
@@ -119,7 +119,7 @@ defmodule BugsBunny.Integration.ApiTest do
       capture_log(fn ->
         client_pid =
           spawn(fn ->
-            BugsBunny.with_channel(pool_id, fn {:ok, channel} ->
+            ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
               :ok = AMQP.Channel.close(channel)
             end)
           end)
@@ -140,7 +140,7 @@ defmodule BugsBunny.Integration.ApiTest do
 
   test "creates queue with exchange and bindings", %{pool_id: pool_id} do
     assert :ok =
-             BugsBunny.create_queue_with_bind(
+             ExRabbitPool.create_queue_with_bind(
                RabbitMQ,
                pool_id,
                "test_queue",
@@ -150,7 +150,7 @@ defmodule BugsBunny.Integration.ApiTest do
                exchange_options: [auto_delete: true]
              )
 
-    BugsBunny.with_channel(pool_id, fn {:ok, channel} ->
+    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = AMQP.Basic.publish(channel, "test_exchange", "", "Hello, World!")
       assert {:ok, "Hello, World!", _meta} = AMQP.Basic.get(channel, "test_queue")
       assert {:ok, _} = AMQP.Queue.delete(channel, "test_queue")
@@ -159,7 +159,7 @@ defmodule BugsBunny.Integration.ApiTest do
 
   test "should not fail when binding and declaring default exchange", %{pool_id: pool_id} do
     assert :ok =
-             BugsBunny.create_queue_with_bind(
+             ExRabbitPool.create_queue_with_bind(
                RabbitMQ,
                pool_id,
                "test2_queue",
@@ -169,7 +169,7 @@ defmodule BugsBunny.Integration.ApiTest do
                exchange_options: [auto_delete: true]
              )
 
-    BugsBunny.with_channel(pool_id, fn {:ok, channel} ->
+    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = AMQP.Basic.publish(channel, "", "test2_queue", "Hello, World!")
       assert {:ok, "Hello, World!", _meta} = AMQP.Basic.get(channel, "test2_queue")
       assert {:ok, _} = AMQP.Queue.delete(channel, "test2_queue")

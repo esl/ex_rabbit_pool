@@ -1,7 +1,7 @@
-defmodule BugsBunny.PoolSupervisor do
+defmodule ExRabbitPool.PoolSupervisor do
   use Supervisor
 
-  alias BugsBunny.Worker.SetupQueue
+  alias ExRabbitPool.Worker.SetupQueue
 
   @type config :: [rabbitmq_config: keyword(), rabbitmq_conn_pool: keyword()]
 

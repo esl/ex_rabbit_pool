@@ -1,10 +1,10 @@
-defmodule BugsBunny.Integration.RabbitConnectionTest do
+defmodule ExRabbitPool.Integration.RabbitConnectionTest do
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureLog
 
-  alias BugsBunny.RabbitMQ
-  alias BugsBunny.Worker.RabbitConnection, as: ConnWorker
+  alias ExRabbitPool.RabbitMQ
+  alias ExRabbitPool.Worker.RabbitConnection, as: ConnWorker
 
   @moduletag :integration
 

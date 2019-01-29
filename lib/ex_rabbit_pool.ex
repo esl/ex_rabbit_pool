@@ -1,5 +1,5 @@
-defmodule BugsBunny do
-  alias BugsBunny.Worker.RabbitConnection, as: Conn
+defmodule ExRabbitPool do
+  alias ExRabbitPool.Worker.RabbitConnection, as: Conn
 
   @type f :: ({:ok, AMQP.Channel.t()} | {:error, :disconected | :out_of_channels} -> any())
 

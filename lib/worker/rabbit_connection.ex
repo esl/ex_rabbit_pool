@@ -1,4 +1,4 @@
-defmodule BugsBunny.Worker.RabbitConnection do
+defmodule ExRabbitPool.Worker.RabbitConnection do
   use GenServer
 
   require Logger
@@ -19,7 +19,7 @@ defmodule BugsBunny.Worker.RabbitConnection do
             config: config()
           }
 
-    defstruct adapter: BugsBunny.RabbitMQ,
+    defstruct adapter: ExRabbitPool.RabbitMQ,
               connection: nil,
               channels: [],
               config: nil,
@@ -77,7 +77,7 @@ defmodule BugsBunny.Worker.RabbitConnection do
 
     # split our opts from the ones passed to the amqp client
     {opts, amqp_config} = Keyword.split(config, [:adapter])
-    adapter = Keyword.get(opts, :adapter, BugsBunny.RabbitMQ)
+    adapter = Keyword.get(opts, :adapter, ExRabbitPool.RabbitMQ)
 
     {:ok, %State{adapter: adapter, config: amqp_config}}
   end

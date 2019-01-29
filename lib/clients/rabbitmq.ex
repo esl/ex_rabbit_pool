@@ -1,7 +1,7 @@
-defmodule BugsBunny.RabbitMQ do
+defmodule ExRabbitPool.RabbitMQ do
   require Logger
 
-  @behaviour BugsBunny.Clients.Adapter
+  @behaviour ExRabbitPool.Clients.Adapter
 
   use AMQP
 

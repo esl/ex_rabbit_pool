@@ -1,10 +1,10 @@
-defmodule BugsBunny.Worker.RabbitConnectionTest do
+defmodule ExRabbitPool.Worker.RabbitConnectionTest do
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureLog
 
-  alias BugsBunny.FakeRabbitMQ
-  alias BugsBunny.Worker.RabbitConnection, as: ConnWorker
+  alias ExRabbitPool.FakeRabbitMQ
+  alias ExRabbitPool.Worker.RabbitConnection, as: ConnWorker
 
   setup do
     rabbitmq_config = [
