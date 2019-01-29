@@ -3,10 +3,9 @@ language: elixir
 install: true
 sudo: true
 before_install:
- - sudo apt-get update && sudo apt-get install postgresql-client
- - docker run --detach --rm --hostname postgres --name postgres -e POSTGRES_PASSWORD=postgres -p 5432 postgres:9.6.10-alpine
- - export POSTGRES_PORT=$(docker inspect --format '{{ (index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort }}' postgres )
- - until PGPASSWORD=postgres psql -h localhost -U "postgres" -p $POSTGRES_PORT -c '\q' &> /dev/null ; do printf '.'; sleep 1; done
+ - docker run --detach --rm --hostname bugs-bunny --name roger_rabbit -p 5672 rabbitmq:3.7.7
+ - export POLLER_RMQ_PORT=$(docker inspect --format '{{ (index (index .NetworkSettings.Ports "5672/tcp") 0).HostPort }}' roger_rabbit )
+ - until curl --silent -XGET --fail http://127.0.0.1:${POLLER_RMQ_PORT} &> /dev/null ; do printf '.'; sleep 1; done
 elixir:
   - '1.8'
 before_script:
