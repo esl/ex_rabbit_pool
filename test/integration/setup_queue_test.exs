@@ -1,4 +1,4 @@
-defmodule BugsBunny.Integration.SetupQueueTest do
+defmodule ExRabbitPool.Integration.SetupQueueTest do
   use ExUnit.Case, async: false
 
   @moduletag :integration
@@ -21,18 +21,18 @@ defmodule BugsBunny.Integration.SetupQueueTest do
       :rabbitmq_conn_pool,
       pool_id: :setup_queue_pool,
       name: {:local, :setup_queue_pool},
-      worker_module: BugsBunny.Worker.RabbitConnection,
+      worker_module: ExRabbitPool.Worker.RabbitConnection,
       size: 1,
       max_overflow: 0
     ]
 
     start_supervised!(%{
-      id: BugsBunny.PoolSupervisorTest,
+      id: ExRabbitPool.PoolSupervisorTest,
       start:
-        {BugsBunny.PoolSupervisor, :start_link,
+        {ExRabbitPool.PoolSupervisor, :start_link,
          [
            [rabbitmq_config: rabbitmq_config, rabbitmq_conn_pool: rabbitmq_conn_pool],
-           BugsBunny.PoolSupervisorTest
+           ExRabbitPool.PoolSupervisorTest
          ]},
       type: :supervisor
     })
@@ -41,7 +41,7 @@ defmodule BugsBunny.Integration.SetupQueueTest do
   end
 
   test "declare queue on startup", %{pool_id: pool_id} do
-    BugsBunny.with_channel(pool_id, fn {:ok, channel} ->
+    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = AMQP.Basic.publish(channel, "my_exchange", "", "Hello, World!")
       assert {:ok, "Hello, World!", _meta} = AMQP.Basic.get(channel, @queue)
       assert {:ok, _} = AMQP.Queue.delete(channel, @queue)

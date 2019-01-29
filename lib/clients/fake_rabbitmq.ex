@@ -1,7 +1,7 @@
 # TODOL: change this fake adapter to not depend on RabbitMQ
 # based on this: http://tech.adroll.com/blog/dev/2018/03/28/elixir-stubs-for-tests.html
-defmodule BugsBunny.FakeRabbitMQ do
-  @behaviour BugsBunny.Clients.Adapter
+defmodule ExRabbitPool.FakeRabbitMQ do
+  @behaviour ExRabbitPool.Clients.Adapter
   use AMQP
 
   @impl true

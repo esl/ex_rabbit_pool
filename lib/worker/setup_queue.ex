@@ -1,4 +1,4 @@
-defmodule BugsBunny.Worker.SetupQueue do
+defmodule ExRabbitPool.Worker.SetupQueue do
   use GenServer, restart: :temporary
 
   def start_link(args) do
@@ -6,13 +6,13 @@ defmodule BugsBunny.Worker.SetupQueue do
   end
 
   def init({pool_id, rabbitmq_config}) do
-    adapter = rabbitmq_config |> Keyword.get(:adapter, BugsBunny.RabbitMQ)
+    adapter = rabbitmq_config |> Keyword.get(:adapter, ExRabbitPool.RabbitMQ)
     queue = rabbitmq_config |> Keyword.fetch!(:queue)
     exchange = rabbitmq_config |> Keyword.fetch!(:exchange)
     queue_options = rabbitmq_config |> Keyword.get(:queue_options, [])
     exchange_options = rabbitmq_config |> Keyword.get(:exchange_options, [])
 
-    BugsBunny.create_queue_with_bind(adapter, pool_id, queue, exchange, :direct,
+    ExRabbitPool.create_queue_with_bind(adapter, pool_id, queue, exchange, :direct,
       queue_options: queue_options,
       exchange_options: exchange_options
     )
