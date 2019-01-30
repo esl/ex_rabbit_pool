@@ -9,7 +9,7 @@ defmodule ExRabbitPool.Integration.SetupQueueTest do
 
     rabbitmq_config = [
       channels: 1,
-      port: String.to_integer(System.get_env("POLLER_RMQ_PORT") || "5672"),
+      port: String.to_integer(System.get_env("EX_RABBIT_POOL_PORT") || "5672"),
       queue: @queue,
       exchange: "my_exchange",
       caller: caller,
