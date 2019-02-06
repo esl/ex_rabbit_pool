@@ -7,18 +7,22 @@ defmodule ExRabbitPool.Worker.SetupQueue do
 
   def init({pool_id, rabbitmq_config}) do
     adapter = rabbitmq_config |> Keyword.get(:adapter, ExRabbitPool.RabbitMQ)
-    queue = rabbitmq_config |> Keyword.fetch!(:queue)
-    exchange = rabbitmq_config |> Keyword.fetch!(:exchange)
-    queue_options = rabbitmq_config |> Keyword.get(:queue_options, [])
-    exchange_options = rabbitmq_config |> Keyword.get(:exchange_options, [])
+    queues = rabbitmq_config |> Keyword.fetch!(:queues)
 
-    ExRabbitPool.create_queue_with_bind(adapter, pool_id, queue, exchange, :direct,
-      queue_options: queue_options,
-      exchange_options: exchange_options
-    )
-    |> case do
-      :ok -> :ignore
-      {:error, _} = error -> {:stop, error}
+    for queue_config <- queues do
+      queue_name = queue_config |> Keyword.fetch!(:queue_name)
+      exchange = queue_config |> Keyword.fetch!(:exchange)
+      queue_options = queue_config |> Keyword.get(:queue_options, [])
+      exchange_options = queue_config |> Keyword.get(:exchange_options, [])
+
+      # Fail if couldn't create queue
+      :ok =
+        ExRabbitPool.create_queue_with_bind(adapter, pool_id, queue_name, exchange, :direct,
+          queue_options: queue_options,
+          exchange_options: exchange_options
+        )
     end
+
+    :ignore
   end
 end
