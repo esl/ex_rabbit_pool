@@ -14,12 +14,16 @@ defmodule ExRabbitPool.Integration.ApiTest do
     rabbitmq_config = [
       channels: 1,
       port: String.to_integer(System.get_env("EX_RABBIT_POOL_PORT") || "5672"),
-      # fire and forget queue
-      queue: "",
-      exchange: "",
-      adapter: RabbitMQ,
-      queue_options: [auto_delete: true, exclusive: true],
-      exchange_options: [auto_delete: true, exclusive: true]
+      queues: [
+        [
+          # fire and forget queue
+          queue_name: "",
+          exchange: "",
+          queue_options: [auto_delete: true, exclusive: true],
+          exchange_options: [auto_delete: true, exclusive: true]
+        ]
+      ],
+      adapter: RabbitMQ
     ]
 
     rabbitmq_conn_pool = [

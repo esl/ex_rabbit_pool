@@ -15,10 +15,10 @@ def deps do
 end
 ```
 
-[![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbitmq_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbitmq_pool?branch=master)
-[![Build Status](https://travis-ci.com/esl/ex_rabbitmq_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbitmq_pool)
-[HexDocs](https://hexdocs.pm/ex_rabbitmq_pool)
-[Hex.pm](https://hex.pm/packages/ex_rabbitmq_pool)
+* [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbitmq_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbitmq_pool?branch=master)
+* [![Build Status](https://travis-ci.com/esl/ex_rabbitmq_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbitmq_pool)
+* [HexDocs](https://hexdocs.pm/ex_rabbitmq_pool)
+* [Hex.pm](https://hex.pm/packages/ex_rabbitmq_pool)
 
 ## General Overview
 
@@ -26,7 +26,6 @@ end
 - each connection worker traps exits and links the connection process to it
 - each connection worker creates a pool of channels and links them to it
 - when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
-
 
 ## High Level Architecture
 
@@ -52,3 +51,109 @@ Also:
 ## Supervision hierarchy
 
 ![supervisor diagram](https://user-images.githubusercontent.com/1157892/52127565-681b8400-2600-11e9-8c37-34287e4c9b2c.png)
+
+## Setting Up Queues on Start Up
+
+Images are taken from [RabbitMQ Tutorials](https://www.rabbitmq.com/tutorials/tutorial-four-python.html)
+
+### Basic config - Without Setting Any Queue
+
+When you want to configure your self the queues on the right time for you, not on start up
+
+```ex
+# Rabbit Connection Configuration
+rabbitmq_config = [
+  channels: 1,
+  port: "5672"
+]
+
+# Connection Pool Configuration
+rabbitmq_conn_pool = [
+  :rabbitmq_conn_pool,
+  pool_id: :rabbit_pool,
+  name: {:local, :rabbit_pool},
+  worker_module: ExRabbitPool.Worker.RabbitConnection,
+  size: 1,
+  max_overflow: 0
+]
+
+ExRabbitPool.PoolSupervisor.start_link(
+  rabbitmq_config: rabbitmq_config,
+  rabbitmq_conn_pool: rabbitmq_conn_pool
+)
+```
+
+### Setting up a direct exchange with bindings
+
+![Direct Exchange Multiple](https://www.rabbitmq.com/img/tutorials/direct-exchange.png)
+
+```ex
+rabbitmq_config = [
+  ..., # Basic Rabbit Connection Configuration
+  queues: [
+    [
+      queue_name: "Q1",
+      exchange: "X",
+      queue_options: [],
+      exchange_options: [],
+      bind_options: [routing_key: "orange"]
+    ],
+    [
+      queue_name: "Q2",
+      exchange: "X",
+      queue_options: [],
+      exchange_options: [],
+      bind_options: [routing_key: "black"]
+    ],
+    [
+      queue_name: "Q2",
+      exchange: "X",
+      queue_options: [],
+      exchange_options: [],
+      bind_options: [routing_key: "green"]
+    ]
+  ]
+]
+
+# Basic Connection Pool Configuration
+rabbitmq_conn_pool = [...]
+
+ExRabbitPool.PoolSupervisor.start_link(
+  rabbitmq_config: rabbitmq_config,
+  rabbitmq_conn_pool: rabbitmq_conn_pool
+)
+```
+
+### Setting up a direct exchange with multiple bindings
+
+![Direct Exchange Multiple](https://www.rabbitmq.com/img/tutorials/direct-exchange-multiple.png)
+
+```ex
+rabbitmq_config = [
+  ..., # Basic Rabbit Connection Configuration
+  queues: [
+    [
+      queue_name: "Q1",
+      exchange: "X",
+      queue_options: [],
+      exchange_options: [],
+      bind_options: [routing_key: "black"]
+    ],
+    [
+      queue_name: "Q2",
+      exchange: "X",
+      queue_options: [],
+      exchange_options: [],
+      bind_options: [routing_key: "black"]
+    ]
+  ]
+]
+
+# Basic Connection Pool Configuration
+rabbitmq_conn_pool = [...]
+
+ExRabbitPool.PoolSupervisor.start_link(
+  rabbitmq_config: rabbitmq_config,
+  rabbitmq_conn_pool: rabbitmq_conn_pool
+)
+```
