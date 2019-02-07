@@ -124,7 +124,7 @@ ExRabbitPool.PoolSupervisor.start_link(
 )
 ```
 
-### Setting up a direct exchange with multiple bindings
+### Setting up a direct exchange with the same bindings
 
 ![Direct Exchange Multiple](https://www.rabbitmq.com/img/tutorials/direct-exchange-multiple.png)
 
