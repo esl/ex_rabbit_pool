@@ -74,22 +74,22 @@ rabbitmq_config = [
     [
       queue_name: "Q1",
       exchange: "X",
-      queue_options: [auto_delete: true],
-      exchange_options: [auto_delete: true],
+      queue_options: [],
+      exchange_options: [],
       bind_options: [routing_key: "orange"]
     ],
     [
       queue_name: "Q2",
       exchange: "X",
-      queue_options: [auto_delete: true],
-      exchange_options: [auto_delete: true],
+      queue_options: [],
+      exchange_options: [],
       bind_options: [routing_key: "black"]
     ],
     [
       queue_name: "Q2",
       exchange: "X",
-      queue_options: [auto_delete: true],
-      exchange_options: [auto_delete: true],
+      queue_options: [],
+      exchange_options: [],
       bind_options: [routing_key: "green"]
     ]
   ]
@@ -115,15 +115,15 @@ rabbitmq_config = [
     [
       queue_name: "Q1",
       exchange: "X",
-      queue_options: [auto_delete: true],
-      exchange_options: [auto_delete: true],
+      queue_options: [],
+      exchange_options: [],
       bind_options: [routing_key: "black"]
     ],
     [
       queue_name: "Q2",
       exchange: "X",
-      queue_options: [auto_delete: true],
-      exchange_options: [auto_delete: true],
+      queue_options: [],
+      exchange_options: [],
       bind_options: [routing_key: "black"]
     ]
   ]
