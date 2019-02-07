@@ -40,6 +40,8 @@ Images are taken from [RabbitMQ Tutorials](https://www.rabbitmq.com/tutorials/tu
 
 ### Basic config - Without Setting Any Queue
 
+When you want to configure your self the queues on the right time for you, not on start up
+
 ```ex
 # Rabbit Connection Configuration
 rabbitmq_config = [
