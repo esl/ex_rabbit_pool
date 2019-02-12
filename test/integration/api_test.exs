@@ -149,7 +149,6 @@ defmodule ExRabbitPool.Integration.ApiTest do
                pool_id,
                "test_queue",
                "test_exchange",
-               :direct,
                queue_options: [auto_delete: true],
                exchange_options: [auto_delete: true]
              )
@@ -168,7 +167,6 @@ defmodule ExRabbitPool.Integration.ApiTest do
                pool_id,
                "test2_queue",
                "",
-               :direct,
                queue_options: [auto_delete: true],
                exchange_options: [auto_delete: true]
              )
