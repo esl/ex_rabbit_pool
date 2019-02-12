@@ -75,10 +75,9 @@ defmodule ExRabbitPool do
           module(),
           AMQP.Basic.queue(),
           AMQP.Basic.exchange(),
-          type :: atom(),
           keyword()
         ) :: :ok | AMQP.Basic.error() | {:error, any()}
-  def create_queue_with_bind(adapter, pool_id, queue, exchange, type \\ :direct, options \\ []) do
+  def create_queue_with_bind(adapter, pool_id, queue, exchange, options \\ []) do
     queue_options = Keyword.get(options, :queue_options, [])
     exchange_options = Keyword.get(options, :exchange_options, [])
     bind_options = Keyword.get(options, :bind_options, [])
@@ -87,7 +86,7 @@ defmodule ExRabbitPool do
     do_with_conn(conn_worker, fn
       {:ok, channel} ->
         with {:ok, _} <- adapter.declare_queue(channel, queue, queue_options),
-             :ok <- adapter.declare_exchange(channel, exchange, type, exchange_options),
+             :ok <- adapter.declare_exchange(channel, exchange, exchange_options),
              :ok <- adapter.queue_bind(channel, queue, exchange, bind_options) do
           :ok
         else

@@ -12,6 +12,6 @@ defmodule ExRabbitPool.Clients.Adapter do
               {:ok, map()} | AMQP.Basic.error()
   @callback queue_bind(AMQP.Channel.t(), AMQP.Basic.queue(), AMQP.Basic.exchange(), keyword()) ::
               :ok | AMQP.Basic.error()
-  @callback declare_exchange(AMQP.Channel.t(), AMQP.Basic.exchange(), type :: atom, keyword()) ::
+  @callback declare_exchange(AMQP.Channel.t(), AMQP.Basic.exchange(), keyword()) ::
               :ok | AMQP.Basic.error()
 end
