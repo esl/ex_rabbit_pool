@@ -53,11 +53,13 @@ defmodule ExRabbitPool.RabbitMQ do
   end
 
   @impl true
-  def declare_exchange(channel, exchange, type \\ :direct, options \\ [])
+  def declare_exchange(channel, exchange, options \\ [])
 
-  def declare_exchange(_channel, "", _type, _options), do: :ok
+  def declare_exchange(_channel, "", _options), do: :ok
 
-  def declare_exchange(channel, exchange, type, options) do
+  def declare_exchange(channel, exchange, options) do
+    type = Keyword.get(options, :type, :direct)
+
     case Exchange.declare(channel, exchange, type, options) do
       :ok ->
         Logger.info("exchange #{exchange} successfully declared")

@@ -130,4 +130,35 @@ defmodule ExRabbitPool.Integration.SetupQueueTest do
       assert {:ok, _} = AMQP.Queue.delete(channel, queue2)
     end)
   end
+
+  test "declare queue with fanout exchange", %{pool_id: pool_id, queue1: queue1, queue2: queue2} do
+    start_supervised!(
+      {SetupQueue,
+       {pool_id,
+        [
+          queues: [
+            [
+              queue_name: queue1,
+              exchange: "my_exchange",
+              queue_options: [auto_delete: true],
+              exchange_options: [auto_delete: true, type: :fanout]
+            ],
+            [
+              queue_name: queue2,
+              exchange: "my_exchange",
+              queue_options: [auto_delete: true],
+              exchange_options: [auto_delete: true, type: :fanout]
+            ]
+          ]
+        ]}}
+    )
+
+    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
+      assert :ok = AMQP.Basic.publish(channel, "my_exchange", "", "Hello, World!")
+      assert {:ok, "Hello, World!", _meta} = AMQP.Basic.get(channel, queue1, no_ack: true)
+      assert {:ok, "Hello, World!", _meta} = AMQP.Basic.get(channel, queue2, no_ack: true)
+      assert {:ok, _} = AMQP.Queue.delete(channel, queue1)
+      assert {:ok, _} = AMQP.Queue.delete(channel, queue2)
+    end)
+  end
 end

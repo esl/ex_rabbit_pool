@@ -18,7 +18,7 @@ defmodule ExRabbitPool.Worker.SetupQueue do
 
       # Fail if couldn't create queue
       :ok =
-        ExRabbitPool.create_queue_with_bind(adapter, pool_id, queue_name, exchange, :direct,
+        ExRabbitPool.create_queue_with_bind(adapter, pool_id, queue_name, exchange,
           queue_options: queue_options,
           exchange_options: exchange_options,
           bind_options: bind_options
