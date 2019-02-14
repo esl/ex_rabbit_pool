@@ -10,7 +10,7 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
 
   setup do
     rabbitmq_config = [
-      channels: 5,
+      channels: 1,
       port: String.to_integer(System.get_env("EX_RABBIT_POOL_PORT") || "5672"),
       queue: "test.queue",
       exchange: "",
@@ -58,10 +58,20 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
         assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}
         assert_receive {:trace, ^pid, :receive, {:EXIT, ^channel_pid, :normal}}
         %{channels: channels, monitors: monitors} = ConnWorker.state(pid)
-        assert length(channels) == 5
+        assert length(channels) == 1
         assert Enum.empty?(monitors)
       end)
 
     assert logs =~ "[Rabbit] channel lost, attempting to reconnect reason: :normal"
+  end
+
+  @tag capture_log: true
+  test "creates a new channel on demand", %{config: config} do
+    config = Keyword.merge(config, [{:reconnect_interval, 10}, {:channels, 0}])
+    pid = start_supervised!({ConnWorker, config})
+    assert {:ok, channel} = ConnWorker.create_channel(pid)
+    :ok = AMQP.Channel.close(channel)
+    %{channels: channels} = ConnWorker.state(pid)
+    assert Enum.empty?(channels)
   end
 end

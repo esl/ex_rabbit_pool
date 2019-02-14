@@ -53,6 +53,11 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     GenServer.cast(pid, {:checkin_channel, channel})
   end
 
+  @spec create_channel(pid()) :: {:ok, AMQP.Channel.t()} | {:error, any()}
+  def create_channel(pid) do
+    GenServer.call(pid, :create_channel)
+  end
+
   @doc false
   def state(pid) do
     GenServer.call(pid, :state)
@@ -119,6 +124,16 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
      %State{state | channels: rest, monitors: [{monitor_ref, channel} | monitors]}}
   end
 
+  # Create a channel without linking the worker process to the channel pid, this
+  # way clients can create channels on demand without the need of a pool, but
+  # they are now in charge of handling channel crashes, connection closing,
+  # channel closing, etc.
+  @impl true
+  def handle_call(:create_channel, _from, %{connection: conn, adapter: adapter} = state) do
+    result = start_channel(adapter, conn)
+    {:reply, result, state}
+  end
+
   @impl true
   def handle_call(:state, _from, state) do
     {:reply, state, state}
@@ -163,11 +178,12 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         num_channels = Keyword.get(config, :channels, @default_channels)
 
         channels =
-          for _ <- 1..num_channels do
+          do_times(num_channels, 0, fn ->
             {:ok, channel} = start_channel(adapter, connection)
+            true = Process.link(channel.pid)
 
             channel
-          end
+          end)
 
         {:noreply, %State{state | connection: connection, channels: channels}}
     end
@@ -206,6 +222,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       end)
 
     {:ok, channel} = start_channel(adapter, conn)
+    true = Process.link(channel.pid)
 
     monitors
     |> Enum.find(fn {_ref, %{pid: chan_id}} ->
@@ -274,9 +291,8 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   @spec start_channel(module(), AMQP.Connection.t()) :: {:ok, AMQP.Channel.t()} | {:error, any()}
   defp start_channel(client, connection) do
     case client.open_channel(connection) do
-      {:ok, %{pid: pid}} = result ->
+      {:ok, _channel} = result ->
         Logger.info("[Rabbit] channel connected")
-        true = Process.link(pid)
         result
 
       {:error, reason} = error ->
@@ -291,5 +307,12 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
 
   defp get_reconnect_interval(config) do
     Keyword.get(config, :reconnect_interval, @reconnect_interval)
+  end
+
+  @spec do_times(non_neg_integer(), non_neg_integer(), (-> any())) :: [any()]
+  defp do_times(limit, counter, _function) when counter >= limit, do: []
+
+  defp do_times(limit, counter, function) do
+    [function.() | do_times(limit, 1 + counter, function)]
   end
 end
