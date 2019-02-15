@@ -5,7 +5,7 @@ A RabbitMQ connection pooling library written in Elixir
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `bugs_bunny` to your list of dependencies in `mix.exs`:
+by adding `ex_rabbitmq_pool` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
