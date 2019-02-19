@@ -13,20 +13,6 @@ defmodule ExRabbitPool do
   end
 
   @doc """
-  Executes function f in the context of a channel, takes a connection worker
-  out of the pool, put that connection worker back into the pool so any
-  other concurrent client can have access to it, checks out a channel out of
-  the worker's channel pool, executes the function with the result of the
-  checkout and finally puts the channel back into the worker's pool.
-  """
-  @spec with_channel(atom(), f()) :: any()
-  def with_channel(pool_id, fun) do
-    conn_worker = :poolboy.checkout(pool_id)
-    :ok = :poolboy.checkin(pool_id, conn_worker)
-    do_with_conn(conn_worker, fun)
-  end
-
-  @doc """
   Gets a connection worker out of the pool and returns it back immediately so it
   can be reused by another client
   """
@@ -35,6 +21,20 @@ defmodule ExRabbitPool do
     conn_worker = :poolboy.checkout(pool_id)
     :ok = :poolboy.checkin(pool_id, conn_worker)
     conn_worker
+  end
+
+  @doc """
+  Executes function f in the context of a channel, takes a connection worker
+  out of the pool, put that connection worker back into the pool so any
+  other concurrent client can have access to it, checks out a channel out of
+  the worker's channel pool, executes the function with the result of the
+  checkout and finally puts the channel back into the worker's pool.
+  """
+  @spec with_channel(atom(), f()) :: any()
+  def with_channel(pool_id, fun) do
+    pool_id
+    |> get_connection_worker()
+    |> do_with_conn(fun)
   end
 
   @doc """
