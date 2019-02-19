@@ -28,7 +28,6 @@ defmodule ExRabbitPool.Integration.ApiTest do
 
     rabbitmq_conn_pool = [
       :rabbitmq_conn_pool,
-      pool_id: pool_id,
       name: {:local, pool_id},
       worker_module: RabbitConnection,
       size: 1,

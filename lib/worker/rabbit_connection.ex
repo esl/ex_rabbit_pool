@@ -201,10 +201,14 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
 
   # connection crashed so channels are going to crash too
   @impl true
-  def handle_info({:EXIT, pid, reason}, %{connection: nil, channels: channels} = state) do
+  def handle_info(
+        {:EXIT, pid, reason},
+        %{connection: nil, channels: channels, monitors: monitors} = state
+      ) do
     Logger.error("[Rabbit] connection lost, removing channel reason: #{inspect(reason)}")
-    new_channels = List.delete(channels, pid)
-    {:noreply, %State{state | channels: new_channels}}
+    new_channels = remove_channel(channels, pid)
+    new_monitors = remove_monitor(monitors, pid)
+    {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
   end
 
   # connection did not crash but a channel did
@@ -216,29 +220,11 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     Logger.error("[Rabbit] channel lost, attempting to reconnect reason: #{inspect(reason)}")
     # TODO: use exponential backoff to reconnect
     # TODO: use circuit breaker to fail fast
-    new_channels =
-      Enum.filter(channels, fn %{pid: channel_pid} ->
-        channel_pid != pid
-      end)
-
+    new_channels = remove_channel(channels, pid)
+    new_monitors = remove_monitor(monitors, pid)
     {:ok, channel} = start_channel(adapter, conn)
     true = Process.link(channel.pid)
-
-    monitors
-    |> Enum.find(fn {_ref, %{pid: chan_id}} ->
-      pid == chan_id
-    end)
-    |> case do
-      # if nil means DOWN message already handled and monitor already removed
-      nil ->
-        {:noreply, %State{state | channels: [channel | new_channels]}}
-
-      {ref, _} = returned ->
-        true = Process.demonitor(ref)
-        new_monitors = List.delete(monitors, returned)
-
-        {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
-    end
+    {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
   end
 
   # if client holding a channel fails, then we need to take its channel back
@@ -309,10 +295,48 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     Keyword.get(config, :reconnect_interval, @reconnect_interval)
   end
 
-  @spec do_times(non_neg_integer(), non_neg_integer(), (-> any())) :: [any()]
+  @spec do_times(non_neg_integer(), non_neg_integer(), (() -> any())) :: [any()]
   defp do_times(limit, counter, _function) when counter >= limit, do: []
 
   defp do_times(limit, counter, function) do
     [function.() | do_times(limit, 1 + counter, function)]
+  end
+
+  defp remove_channel(channels, channel_pid) do
+    Enum.filter(channels, fn %{pid: pid} ->
+      channel_pid != pid
+    end)
+  end
+
+  defp remove_monitor(monitors, channel_pid) when is_pid(channel_pid) do
+    monitors
+    |> Enum.find(fn {_ref, %{pid: pid}} ->
+      channel_pid == pid
+    end)
+    |> case do
+      # if nil means DOWN message already handled and monitor already removed
+      nil ->
+        monitors
+
+      {ref, _} = returned ->
+        true = Process.demonitor(ref)
+        List.delete(monitors, returned)
+    end
+  end
+
+  defp remove_monitor(monitors, client_ref) when is_reference(client_ref) do
+    monitors
+    |> Enum.find(fn {ref, _} ->
+      client_ref == ref
+    end)
+    |> case do
+      # if nil means DOWN message already handled and monitor already removed
+      nil ->
+        monitors
+
+      {ref, _channel} = returned ->
+        true = Process.demonitor(ref)
+        List.delete(monitors, returned)
+    end
   end
 end

@@ -32,20 +32,20 @@ end
 
 When starting a connection worker :
 
-* We start a pool of multiplexed channels to RabbitMQ 
-* Store the channel pool to the connection workers state (we can move this later to ets). 
+* We start a pool of multiplexed channels to RabbitMQ
+* Store the channel pool to the connection workers state (we can move this later to ets).
 
 Then:
 
 * The connection worker traps exists of RabbitMQ channels - which means that :
-    * If a channel crashes, the connection worker is going to be able to start another channel 
-    * If a connection to RabbitMQ crashes we are going to be able to restart that connection, remove all crashed channels and then restart them with a new connection; 
+    * If a channel crashes, the connection worker is going to be able to start another channel
+    * If a connection to RabbitMQ crashes we are going to be able to restart that connection, remove all crashed channels and then restart them with a new connection;
 
 
-Also: 
+Also:
 
 * We are able to easily:
-    * Monitor clients accessing channels, 
+    * Monitor clients accessing channels,
     * Queue and dequeue channels from the pool in order to make them accessible to one client at a time reducing the potential for race conditions.
 
 ## Supervision hierarchy
@@ -70,7 +70,6 @@ rabbitmq_config = [
 # Connection Pool Configuration
 rabbitmq_conn_pool = [
   :rabbitmq_conn_pool,
-  pool_id: :rabbit_pool,
   name: {:local, :rabbit_pool},
   worker_module: ExRabbitPool.Worker.RabbitConnection,
   size: 1,
