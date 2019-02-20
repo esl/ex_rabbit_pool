@@ -69,7 +69,6 @@ rabbitmq_config = [
 
 # Connection Pool Configuration
 rabbitmq_conn_pool = [
-  :rabbitmq_conn_pool,
   name: {:local, :rabbit_pool},
   worker_module: ExRabbitPool.Worker.RabbitConnection,
   size: 1,
