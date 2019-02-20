@@ -4,7 +4,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   require Logger
 
   @reconnect_interval 1_000
-  @default_channels 1_000
+  @default_channels 10
 
   defmodule State do
     @type config :: keyword() | String.t()
