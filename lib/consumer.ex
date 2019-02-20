@@ -39,26 +39,14 @@ defmodule ExRabbitPool.Consumer do
   @type no_wait :: boolean()
   @type reason :: any()
 
-  @callback basic_consume_ok(module(), AMQP.Channel.t(), AMQP.Basic.consumer_tag()) ::
-              :ok | {:stop, reason}
-  @callback basic_deliver(module(), AMQP.Channel.t(), AMQP.Basic.payload(), meta()) ::
-              :ok | {:stop, reason}
-  @callback basic_cancel(module(), AMQP.Channel.t(), AMQP.Basic.consumer_tag(), no_wait) ::
-              :ok | {:stop, reason}
-  @callback basic_cancel_ok(module(), AMQP.Channel.t(), AMQP.Basic.consumer_tag()) ::
-              :ok | {:stop, reason}
+  @callback basic_consume_ok(State.t(), AMQP.Basic.consumer_tag()) :: :ok | {:stop, reason}
+  @callback basic_deliver(State.t(), AMQP.Basic.payload(), meta()) :: :ok | {:stop, reason}
+  @callback basic_cancel(State.t(), AMQP.Basic.consumer_tag(), no_wait()) :: :ok | {:stop, reason}
+  @callback basic_cancel_ok(State.t(), AMQP.Basic.consumer_tag()) :: :ok | {:stop, reason}
 
   defmacro __using__(_opts) do
     quote do
       use GenServer
-
-      def child_spec(config) do
-        %{
-          id: __MODULE__,
-          start: {__MODULE__, :start_link, [config]},
-          type: :supervisor
-        }
-      end
 
       def start_link(config) do
         GenServer.start_link(__MODULE__, config)
@@ -113,9 +101,9 @@ defmodule ExRabbitPool.Consumer do
       @impl true
       def handle_info(
             {:basic_consume_ok, %{consumer_tag: consumer_tag}},
-            %State{adapter: adapter, channel: channel} = state
+            %{consumer_tag: consumer_tag} = state
           ) do
-        case basic_consume_ok(adapter, channel, consumer_tag) do
+        case basic_consume_ok(state, consumer_tag) do
           :ok ->
             {:noreply, state}
 
@@ -131,11 +119,8 @@ defmodule ExRabbitPool.Consumer do
       # content and `meta` contains all the metadata set when sending with
       # Basic.publish or additional info set by the broker;
       @impl true
-      def handle_info(
-            {:basic_deliver, payload, meta},
-            %State{adapter: adapter, channel: channel} = state
-          ) do
-        case basic_deliver(adapter, channel, payload, meta) do
+      def handle_info({:basic_deliver, payload, meta}, state) do
+        case basic_deliver(state, payload, meta) do
           :ok ->
             {:noreply, state}
 
@@ -151,9 +136,9 @@ defmodule ExRabbitPool.Consumer do
       @impl true
       def handle_info(
             {:basic_cancel, %{consumer_tag: consumer_tag, no_wait: no_wait}},
-            %State{adapter: adapter, channel: channel} = state
+            %{consumer_tag: consumer_tag} = state
           ) do
-        case basic_cancel(adapter, channel, consumer_tag, no_wait) do
+        case basic_cancel(state, consumer_tag, no_wait) do
           :ok ->
             {:stop, :shutdown, state}
 
@@ -166,9 +151,9 @@ defmodule ExRabbitPool.Consumer do
       @impl true
       def handle_info(
             {:basic_cancel_ok, %{consumer_tag: consumer_tag}},
-            %State{adapter: adapter, channel: channel} = state
+            %{consumer_tag: consumer_tag} = state
           ) do
-        case basic_cancel_ok(adapter, channel, consumer_tag) do
+        case basic_cancel_ok(state, consumer_tag) do
           :ok ->
             {:stop, :normal, state}
 
