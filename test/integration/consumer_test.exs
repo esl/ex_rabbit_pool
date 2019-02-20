@@ -10,22 +10,15 @@ defmodule ExRabbitPool.ConsumerTest do
 
     require Logger
 
-    def basic_consume_ok(_state, _consumer_tag) do
-      :ok
-    end
+    def basic_consume_ok(_state, _consumer_tag), do: :ok
 
     def basic_deliver(%{adapter: adapter, channel: channel}, _payload, %{delivery_tag: tag}) do
       :ok = adapter.ack(channel, tag)
     end
 
-    def basic_cancel(_state, _consumer_tag, _no_wait) do
-      Logger.error("basic cancel called")
-      :ok
-    end
+    def basic_cancel(_state, _consumer_tag, _no_wait), do: :ok
 
-    def basic_cancel_ok(_state, _consumer_tag) do
-      :ok
-    end
+    def basic_cancel_ok(_state, _consumer_tag), do: :ok
   end
 
   defp random_queue_name() do
@@ -100,10 +93,21 @@ defmodule ExRabbitPool.ConsumerTest do
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = AMQP.Basic.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
 
-      wait_for(fn ->
-        {:ok, result} = AMQP.Queue.status(channel, queue)
-        result == %{consumer_count: 1, message_count: 0, queue: queue}
-      end)
+      assert :ok =
+               wait_for(fn ->
+                 {:ok, result} = AMQP.Queue.status(channel, queue)
+                 result == %{consumer_count: 1, message_count: 0, queue: queue}
+               end)
     end)
+  end
+
+  @tag capture_log: true
+  test "should terminate consumer after Basic.cancel", %{pool_id: pool_id, queue: queue} do
+    consumer_pid =
+      start_supervised!({TestConsumer, pool_id: pool_id, queue: queue}, restart: :temporary)
+
+    %{channel: channel, consumer_tag: consumer_tag} = :sys.get_state(consumer_pid)
+    {:ok, ^consumer_tag} = AMQP.Basic.cancel(channel, consumer_tag)
+    assert :ok = wait_for(fn -> !Process.alive?(consumer_pid) end)
   end
 end

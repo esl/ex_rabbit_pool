@@ -87,9 +87,9 @@ defmodule ExRabbitPool.Consumer do
       @impl true
       def handle_info(
             {:DOWN, monitor, :process, chan_pid, reason},
-            %{monitor: monitor, channel: %{pid: chan_pid}} = state
+            %{monitor: monitor, channel: %{pid: chan_pid}, config: config} = state
           ) do
-        schedule_connect()
+        schedule_connect(config)
         {:noreply, %State{state | monitor: nil, consumer_tag: nil, channel: nil}}
       end
 
@@ -166,7 +166,7 @@ defmodule ExRabbitPool.Consumer do
       # process and monitors it handle crashes and reconnections
       defp handle_channel_checkout(
              {:ok, %{pid: channel_pid} = channel},
-             %{config: config, queue: queue, adapter: adapter} = state
+             %{config: config, queue: queue, adapter: adapter, config: config} = state
            ) do
         config = Keyword.get(config, :options, [])
 
@@ -176,19 +176,20 @@ defmodule ExRabbitPool.Consumer do
             {:noreply, %State{state | channel: channel, monitor: ref, consumer_tag: consumer_tag}}
 
           {:error, reason} ->
-            schedule_connect()
+            schedule_connect(config)
             {:noreply, %State{state | channel: nil, consumer_tag: nil}}
         end
       end
 
       # When there was an error checking out a channel, retry in a configured interval
-      defp handle_channel_checkout({:error, reason}, state) do
-        schedule_connect()
+      defp handle_channel_checkout({:error, reason}, %{config: config} = state) do
+        schedule_connect(config)
         {:noreply, state}
       end
 
-      defp schedule_connect do
-        Process.send_after(self(), :connect, 1000)
+      defp schedule_connect(config) do
+        reconnect_interval = Keyword.get(config, :reconnect_interval, 1_000)
+        Process.send_after(self(), :connect, reconnect_interval)
       end
     end
   end
