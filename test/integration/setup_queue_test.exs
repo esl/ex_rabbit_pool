@@ -1,5 +1,5 @@
 defmodule ExRabbitPool.Integration.SetupQueueTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case
 
   alias ExRabbitPool.Worker.SetupQueue
 
@@ -54,13 +54,13 @@ defmodule ExRabbitPool.Integration.SetupQueueTest do
           queues: [
             [
               queue_name: queue1,
-              exchange: "my_exchange",
+              exchange: "#{queue1}_exchange",
               queue_options: [auto_delete: true],
               exchange_options: [auto_delete: true]
             ],
             [
               queue_name: queue2,
-              exchange: "my_exchange2",
+              exchange: "#{queue2}_exchange",
               queue_options: [auto_delete: true],
               exchange_options: [auto_delete: true]
             ]
@@ -69,10 +69,10 @@ defmodule ExRabbitPool.Integration.SetupQueueTest do
     )
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
-      assert :ok = AMQP.Basic.publish(channel, "my_exchange", "", "Hello, World!")
+      assert :ok = AMQP.Basic.publish(channel, "#{queue1}_exchange", "", "Hello, World!")
       assert {:ok, "Hello, World!", _meta} = AMQP.Basic.get(channel, queue1, no_ack: true)
 
-      assert :ok = AMQP.Basic.publish(channel, "my_exchange2", "", "Hell Yeah!")
+      assert :ok = AMQP.Basic.publish(channel, "#{queue2}_exchange", "", "Hell Yeah!")
       assert {:ok, "Hell Yeah!", _meta} = AMQP.Basic.get(channel, queue2, no_ack: true)
 
       assert {:ok, _} = AMQP.Queue.delete(channel, queue1)
@@ -138,13 +138,13 @@ defmodule ExRabbitPool.Integration.SetupQueueTest do
           queues: [
             [
               queue_name: queue1,
-              exchange: "my_exchange",
+              exchange: "#{queue1}_exchange",
               queue_options: [auto_delete: true],
               exchange_options: [auto_delete: true, type: :fanout]
             ],
             [
               queue_name: queue2,
-              exchange: "my_exchange",
+              exchange: "#{queue1}_exchange",
               queue_options: [auto_delete: true],
               exchange_options: [auto_delete: true, type: :fanout]
             ]
@@ -153,7 +153,7 @@ defmodule ExRabbitPool.Integration.SetupQueueTest do
     )
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
-      assert :ok = AMQP.Basic.publish(channel, "my_exchange", "", "Hello, World!")
+      assert :ok = AMQP.Basic.publish(channel, "#{queue1}_exchange", "", "Hello, World!")
       assert {:ok, "Hello, World!", _meta} = AMQP.Basic.get(channel, queue1, no_ack: true)
       assert {:ok, "Hello, World!", _meta} = AMQP.Basic.get(channel, queue2, no_ack: true)
       assert {:ok, _} = AMQP.Queue.delete(channel, queue1)

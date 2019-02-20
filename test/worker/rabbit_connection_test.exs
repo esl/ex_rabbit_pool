@@ -30,7 +30,7 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
   test "creates a pool of channels by default", %{config: config} do
     pid = start_supervised!({ConnWorker, Keyword.delete(config, :channels)})
     %{channels: channels} = ConnWorker.state(pid)
-    assert length(channels) == 1000
+    assert length(channels) == 10
   end
 
   test "gets a channel and put it back", %{config: config} do
