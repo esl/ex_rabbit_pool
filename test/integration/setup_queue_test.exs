@@ -25,7 +25,6 @@ defmodule ExRabbitPool.Integration.SetupQueueTest do
     ]
 
     rabbitmq_conn_pool = [
-      :rabbitmq_conn_pool,
       name: {:local, :setup_queue_pool},
       worker_module: ExRabbitPool.Worker.RabbitConnection,
       size: 1,
