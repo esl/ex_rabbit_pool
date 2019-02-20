@@ -1,7 +1,7 @@
 defmodule ExRabbitPool do
   alias ExRabbitPool.Worker.RabbitConnection, as: Conn
 
-  @type f :: ({:ok, AMQP.Channel.t()} | {:error, :disconected | :out_of_channels} -> any())
+  @type f :: ({:ok, AMQP.Channel.t()} | {:error, :disconnected | :out_of_channels} -> any())
 
   @doc """
   Gets a connection from a connection worker so any client can exec commands
@@ -41,7 +41,7 @@ defmodule ExRabbitPool do
   Gets a RabbitMQ channel out of a connection worker
   """
   @spec checkout_channel(pid()) ::
-          {:ok, AMQP.Channel.t()} | {:error, :disconected | :out_of_channels}
+          {:ok, AMQP.Channel.t()} | {:error, :disconnected | :out_of_channels}
   def checkout_channel(conn_worker) do
     Conn.checkout_channel(conn_worker)
   end
