@@ -8,13 +8,21 @@ defmodule ExRabbitPool.ConsumerTest do
   defmodule TestConsumer do
     use ExRabbitPool.Consumer
 
-    require Logger
-
     def basic_consume_ok(_state, _consumer_tag), do: :ok
 
     def basic_deliver(%{adapter: adapter, channel: channel}, _payload, %{delivery_tag: tag}) do
       :ok = adapter.ack(channel, tag)
     end
+
+    def basic_cancel(_state, _consumer_tag, _no_wait), do: :ok
+
+    def basic_cancel_ok(_state, _consumer_tag), do: :ok
+  end
+
+  defmodule TestConsumerDefaultDeliver do
+    use ExRabbitPool.Consumer
+
+    def basic_consume_ok(_state, _consumer_tag), do: :ok
 
     def basic_cancel(_state, _consumer_tag, _no_wait), do: :ok
 
@@ -89,6 +97,21 @@ defmodule ExRabbitPool.ConsumerTest do
 
   test "should be able to consume messages out of rabbitmq", %{pool_id: pool_id, queue: queue} do
     start_supervised!({TestConsumer, pool_id: pool_id, queue: queue})
+
+    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
+      assert :ok = AMQP.Basic.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
+
+      assert :ok =
+               wait_for(fn ->
+                 {:ok, result} = AMQP.Queue.status(channel, queue)
+                 result == %{consumer_count: 1, message_count: 0, queue: queue}
+               end)
+    end)
+  end
+
+  @tag capture_io: true
+  test "should be able to consume messages out of rabbitmq with default consumer", %{pool_id: pool_id, queue: queue} do
+    start_supervised!({TestConsumerDefaultDeliver, pool_id: pool_id, queue: queue})
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = AMQP.Basic.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")

@@ -191,6 +191,13 @@ defmodule ExRabbitPool.Consumer do
         reconnect_interval = Keyword.get(config, :reconnect_interval, 1_000)
         Process.send_after(self(), :connect, reconnect_interval)
       end
+
+      def basic_deliver(%{adapter: adapter, channel: channel}, payload, %{delivery_tag: tag}) do
+        :ok = adapter.ack(channel, tag)
+        IO.puts(payload)
+      end
+
+      defoverridable basic_deliver: 3
     end
   end
 end
