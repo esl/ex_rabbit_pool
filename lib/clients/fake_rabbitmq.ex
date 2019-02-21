@@ -38,26 +38,22 @@ defmodule ExRabbitPool.FakeRabbitMQ do
     if Keyword.get(config, :queue) == "error.queue" do
       {:error, :invalid}
     else
-      # Connection.open(config)
       {:ok, %Connection{pid: self()}}
     end
   end
 
   @impl true
   def open_channel(conn) do
-    # Channel.open(conn)
     {:ok, %Channel{conn: conn, pid: self()}}
   end
 
   @impl true
   def close_channel(_channel) do
-    # Channel.close(channel)
     :ok
   end
 
   @impl true
   def close_connection(_conn) do
-    #  Connection.close(conn)
     :ok
   end
 
