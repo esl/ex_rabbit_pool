@@ -2,21 +2,17 @@ defmodule ExRabbitPool.ConsumerTest do
   use ExUnit.Case, async: false
 
   alias ExRabbitPool.Worker.SetupQueue
+  alias ExRabbitPool.RabbitMQ
+  alias AMQP.Queue
 
   @moduletag :integration
 
   defmodule TestConsumer do
     use ExRabbitPool.Consumer
 
-    def basic_consume_ok(_state, _consumer_tag), do: :ok
-
     def basic_deliver(%{adapter: adapter, channel: channel}, _payload, %{delivery_tag: tag}) do
       :ok = adapter.ack(channel, tag)
     end
-
-    def basic_cancel(_state, _consumer_tag, _no_wait), do: :ok
-
-    def basic_cancel_ok(_state, _consumer_tag), do: :ok
   end
 
   defmodule TestDefaultConsumer do
@@ -93,11 +89,11 @@ defmodule ExRabbitPool.ConsumerTest do
     start_supervised!({TestConsumer, pool_id: pool_id, queue: queue})
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
-      assert :ok = AMQP.Basic.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
+      assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
 
       assert :ok =
                wait_for(fn ->
-                 {:ok, result} = AMQP.Queue.status(channel, queue)
+                 {:ok, result} = Queue.status(channel, queue)
                  result == %{consumer_count: 1, message_count: 0, queue: queue}
                end)
     end)
@@ -111,23 +107,49 @@ defmodule ExRabbitPool.ConsumerTest do
     start_supervised!({TestDefaultConsumer, pool_id: pool_id, queue: queue})
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
-      assert :ok = AMQP.Basic.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
+      assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
 
       assert :ok =
                wait_for(fn ->
-                 {:ok, result} = AMQP.Queue.status(channel, queue)
+                 {:ok, result} = Queue.status(channel, queue)
                  result == %{consumer_count: 1, message_count: 0, queue: queue}
                end)
     end)
   end
 
   @tag capture_log: true
-  test "should terminate consumer after Basic.cancel", %{pool_id: pool_id, queue: queue} do
+  test "should terminate consumer after Basic.cancel (basic_cancel_ok)", %{
+    pool_id: pool_id,
+    queue: queue
+  } do
     consumer_pid =
       start_supervised!({TestConsumer, pool_id: pool_id, queue: queue}, restart: :temporary)
 
     %{channel: channel, consumer_tag: consumer_tag} = :sys.get_state(consumer_pid)
-    {:ok, ^consumer_tag} = AMQP.Basic.cancel(channel, consumer_tag)
+    {:ok, ^consumer_tag} = RabbitMQ.cancel_consume(channel, consumer_tag)
+    assert :ok = wait_for(fn -> !Process.alive?(consumer_pid) end)
+  end
+
+  @tag capture_log: true
+  test "should terminate consumer after queue deletion (basic_cancel)", %{
+    pool_id: pool_id,
+    queue: queue
+  } do
+    consumer_pid =
+      start_supervised!({TestConsumer, pool_id: pool_id, queue: queue}, restart: :temporary)
+
+    %{consumer_tag: consumer_tag} = :sys.get_state(consumer_pid)
+
+    :erlang.trace(consumer_pid, true, [:receive])
+
+    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
+      {:ok, _} = Queue.delete(channel, queue)
+    end)
+
+    assert_receive {:trace, ^consumer_pid, :receive,
+                    {:basic_cancel, %{consumer_tag: ^consumer_tag, no_wait: true}}},
+                   1000
+
     assert :ok = wait_for(fn -> !Process.alive?(consumer_pid) end)
   end
 end

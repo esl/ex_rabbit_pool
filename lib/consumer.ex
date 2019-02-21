@@ -196,6 +196,7 @@ defmodule ExRabbitPool.Consumer do
         :ok = adapter.ack(channel, tag)
         IO.puts("[*] RabbitMQ message received: #{payload}")
       end
+
       def basic_consume_ok(_state, _consumer_tag), do: :ok
       def basic_cancel(_state, _consumer_tag, _no_wait), do: :ok
       def basic_cancel_ok(_state, _consumer_tag), do: :ok
