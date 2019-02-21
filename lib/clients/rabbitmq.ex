@@ -16,6 +16,11 @@ defmodule ExRabbitPool.RabbitMQ do
   end
 
   @impl true
+  def cancel_consume(%Channel{} = channel, consumer_tag, options \\ []) do
+    Basic.cancel(channel, consumer_tag, options)
+  end
+
+  @impl true
   def ack(%Channel{} = channel, tag, options \\ []) do
     Basic.ack(channel, tag, options)
   end
@@ -33,6 +38,11 @@ defmodule ExRabbitPool.RabbitMQ do
   @impl true
   def open_channel(conn) do
     Channel.open(conn)
+  end
+
+  @impl true
+  def close_channel(channel) do
+    Channel.close(channel)
   end
 
   @impl true

@@ -25,7 +25,9 @@ defmodule ExRabbitPool.PoolSupervisor do
         rabbitmq_conn_pool ->
           rabbitmq_config = Keyword.get(config, :rabbitmq_config, [])
           {_, pool_id} = Keyword.fetch!(rabbitmq_conn_pool, :name)
-
+          # We are using poolboy's pool as a fifo queue so we can distribute the
+          # load between workers
+          rabbitmq_conn_pool = Keyword.merge(rabbitmq_conn_pool, strategy: :fifo)
           [
             :poolboy.child_spec(pool_id, rabbitmq_conn_pool, rabbitmq_config),
             {SetupQueue, {pool_id, rabbitmq_config}}

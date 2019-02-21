@@ -19,6 +19,11 @@ defmodule ExRabbitPool.FakeRabbitMQ do
   end
 
   @impl true
+  def cancel_consume(_channel, consumer_tag, _options \\ []) do
+    {:ok, consumer_tag}
+  end
+
+  @impl true
   def ack(_channel, _tag, _options \\ []) do
     :ok
   end
@@ -33,20 +38,22 @@ defmodule ExRabbitPool.FakeRabbitMQ do
     if Keyword.get(config, :queue) == "error.queue" do
       {:error, :invalid}
     else
-      # Connection.open(config)
       {:ok, %Connection{pid: self()}}
     end
   end
 
   @impl true
   def open_channel(conn) do
-    # Channel.open(conn)
     {:ok, %Channel{conn: conn, pid: self()}}
   end
 
   @impl true
+  def close_channel(_channel) do
+    :ok
+  end
+
+  @impl true
   def close_connection(_conn) do
-    #  Connection.close(conn)
     :ok
   end
 
