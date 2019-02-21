@@ -19,14 +19,8 @@ defmodule ExRabbitPool.ConsumerTest do
     def basic_cancel_ok(_state, _consumer_tag), do: :ok
   end
 
-  defmodule TestConsumerDefaultDeliver do
+  defmodule TestDefaultConsumer do
     use ExRabbitPool.Consumer
-
-    def basic_consume_ok(_state, _consumer_tag), do: :ok
-
-    def basic_cancel(_state, _consumer_tag, _no_wait), do: :ok
-
-    def basic_cancel_ok(_state, _consumer_tag), do: :ok
   end
 
   defp random_queue_name() do
@@ -110,8 +104,11 @@ defmodule ExRabbitPool.ConsumerTest do
   end
 
   @tag capture_io: true
-  test "should be able to consume messages out of rabbitmq with default consumer", %{pool_id: pool_id, queue: queue} do
-    start_supervised!({TestConsumerDefaultDeliver, pool_id: pool_id, queue: queue})
+  test "should be able to consume messages out of rabbitmq with default consumer", %{
+    pool_id: pool_id,
+    queue: queue
+  } do
+    start_supervised!({TestDefaultConsumer, pool_id: pool_id, queue: queue})
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = AMQP.Basic.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")

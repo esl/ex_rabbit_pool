@@ -194,10 +194,16 @@ defmodule ExRabbitPool.Consumer do
 
       def basic_deliver(%{adapter: adapter, channel: channel}, payload, %{delivery_tag: tag}) do
         :ok = adapter.ack(channel, tag)
-        IO.puts(payload)
+        IO.puts("[*] RabbitMQ message received: #{payload}")
       end
+      def basic_consume_ok(_state, _consumer_tag), do: :ok
+      def basic_cancel(_state, _consumer_tag, _no_wait), do: :ok
+      def basic_cancel_ok(_state, _consumer_tag), do: :ok
 
       defoverridable basic_deliver: 3
+      defoverridable basic_consume_ok: 2
+      defoverridable basic_cancel: 3
+      defoverridable basic_cancel_ok: 2
     end
   end
 end
