@@ -9,13 +9,16 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
   @moduletag :integration
 
   setup do
-    rabbitmq_config = [channels: 1]
+    rabbitmq_config = [
+      channels: 1,
+      port: String.to_integer(System.get_env("EX_RABBIT_POOL_PORT") || "5672")
+    ]
     {:ok, config: rabbitmq_config}
   end
 
   @tag capture_log: true
-  test "connection worker is killed when a connection crashes", %{config: config} do
-    pid = start_supervised!({ConnWorker, [{:reconnect_interval, 100} | config]})
+  test "reconnects to rabbitmq when a connection crashes", %{config: config} do
+    pid = start_supervised!({ConnWorker, [{:reconnect_interval, 10} | config]})
     :erlang.trace(pid, true, [:receive])
 
     logs =
@@ -24,15 +27,15 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
         true = Process.exit(conn_pid, :kill)
         assert_receive {:trace, ^pid, :receive, {:EXIT, ^conn_pid, :killed}}
         assert_receive {:trace, ^pid, :receive, {:EXIT, _channel_pid, :shutdown}}
-        refute Process.alive?(conn_pid)
+        assert_receive {:trace, ^pid, :receive, :connect}, 200
+        assert {:ok, _conn} = ConnWorker.get_connection(pid)
       end)
 
-    assert logs =~ "[Rabbit] connection lost reason: :killed"
+    assert logs =~ "[Rabbit] connection lost, attempting to reconnect reason: :killed"
   end
 
-  @tag capture_log: true
-  test "connection worker is killed when a connection closes", %{config: config} do
-    pid = start_supervised!({ConnWorker, [{:reconnect_interval, 100} | config]})
+  test "reconnects to rabbitmq when a connection is closed", %{config: config} do
+    pid = start_supervised!({ConnWorker, [{:reconnect_interval, 10} | config]})
     :erlang.trace(pid, true, [:receive])
 
     logs =
@@ -40,11 +43,15 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
         assert {:ok, %{pid: conn_pid} = conn} = ConnWorker.get_connection(pid)
         :ok = Connection.close(conn)
         assert_receive {:trace, ^pid, :receive, {:EXIT, _channel_pid, :normal}}
+        assert_receive {:trace, ^pid, :receive, {:EXIT, ^conn_pid, {:shutdown, :normal}}}
+        assert_receive {:trace, ^pid, :receive, :connect}, 200
         refute Process.alive?(conn_pid)
+        assert {:ok, _conn} = ConnWorker.get_connection(pid)
       end)
 
     assert logs =~ "[Rabbit] channel lost reason: :normal"
     assert logs =~ "[Rabbit] error starting channel reason: :closing"
+    assert logs =~ "[Rabbit] connection lost, attempting to reconnect reason: {:shutdown, :normal}"
   end
 
   test "creates a new channel to when a channel crashes", %{config: config} do

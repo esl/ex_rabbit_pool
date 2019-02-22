@@ -32,11 +32,6 @@ defmodule ExRabbitPool.PoolSupervisor do
             pool_config = Keyword.merge(pool_config, strategy: :fifo)
             :poolboy.child_spec(pool_id, pool_config, rabbitmq_config)
           end)
-
-          # TODO: see how to configure and use SetupQueue with multiple queues
-          # setup_queue_pool_id = Keyword.get(rabbitmq_config, :setup_queue_pool_id)
-
-          # pools_spec ++ [{SetupQueue, {pool_id, rabbitmq_config}}]
       end
 
     # if the pool of rabbit connection crashes, try to setup the queues again

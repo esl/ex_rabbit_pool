@@ -4,7 +4,6 @@ defmodule ExRabbitPool.ConsumerTest do
   alias ExRabbitPool.Worker.SetupQueue
   alias ExRabbitPool.RabbitMQ
   alias AMQP.Queue
-  alias ExRabbitPool.Test.Helpers
 
   @moduletag :integration
 
@@ -30,6 +29,18 @@ defmodule ExRabbitPool.ConsumerTest do
     "test.queue-" <> rnd
   end
 
+  def wait_for(timeout \\ 1000, f)
+  def wait_for(0, _), do: {:error, "Error - Timeout"}
+
+  def wait_for(timeout, f) do
+    if f.() do
+      :ok
+    else
+      :timer.sleep(10)
+      wait_for(timeout - 10, f)
+    end
+  end
+
   setup do
     queue = random_queue_name()
 
@@ -50,7 +61,7 @@ defmodule ExRabbitPool.ConsumerTest do
       start:
         {ExRabbitPool.PoolSupervisor, :start_link,
          [
-           [rabbitmq_config: rabbitmq_config, rabbitmq_conn_pool: rabbitmq_conn_pool],
+           [rabbitmq_config: rabbitmq_config, connection_pools: [rabbitmq_conn_pool]],
            ExRabbitPool.PoolSupervisorTest
          ]},
       type: :supervisor
@@ -75,34 +86,34 @@ defmodule ExRabbitPool.ConsumerTest do
   end
 
   test "should be able to consume messages out of rabbitmq", %{pool_id: pool_id, queue: queue} do
-    start_supervised!({TestConsumer, pool_id: pool_id, queue: queue})
+    pid = start_supervised!({TestConsumer, pool_id: pool_id, queue: queue})
+    :erlang.trace(pid, true, [:receive])
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
-
-      assert :ok =
-               Helpers.wait_for(fn ->
-                 {:ok, result} = Queue.status(channel, queue)
-                 result == %{consumer_count: 1, message_count: 0, queue: queue}
-               end)
+      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
+      {:ok, result} = Queue.status(channel, queue)
+      assert result == %{consumer_count: 1, message_count: 0, queue: queue}
     end)
   end
 
-  @tag capture_io: true
   test "should be able to consume messages out of rabbitmq with default consumer", %{
     pool_id: pool_id,
     queue: queue
   } do
-    start_supervised!({TestDefaultConsumer, pool_id: pool_id, queue: queue})
+    pid = start_supervised!({TestDefaultConsumer, pool_id: pool_id, queue: queue})
+    Process.group_leader(pid, self())
+    :erlang.trace(pid, true, [:receive])
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
+      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
 
-      assert :ok =
-               Helpers.wait_for(fn ->
-                 {:ok, result} = Queue.status(channel, queue)
-                 result == %{consumer_count: 1, message_count: 0, queue: queue}
-               end)
+      assert_receive {:io_request, ^pid, _,
+                      {:put_chars, :unicode, "[*] RabbitMQ message received: Hello Consumer!\n"}}
+
+      {:ok, result} = Queue.status(channel, queue)
+      assert result == %{consumer_count: 1, message_count: 0, queue: queue}
     end)
   end
 
@@ -116,7 +127,7 @@ defmodule ExRabbitPool.ConsumerTest do
 
     %{channel: channel, consumer_tag: consumer_tag} = :sys.get_state(consumer_pid)
     {:ok, ^consumer_tag} = RabbitMQ.cancel_consume(channel, consumer_tag)
-    assert :ok = Helpers.wait_for(fn -> !Process.alive?(consumer_pid) end)
+    assert :ok = wait_for(fn -> !Process.alive?(consumer_pid) end)
   end
 
   @tag capture_log: true
@@ -139,6 +150,6 @@ defmodule ExRabbitPool.ConsumerTest do
                     {:basic_cancel, %{consumer_tag: ^consumer_tag, no_wait: true}}},
                    1000
 
-    assert :ok = Helpers.wait_for(fn -> !Process.alive?(consumer_pid) end)
+    assert :ok = wait_for(fn -> !Process.alive?(consumer_pid) end)
   end
 end

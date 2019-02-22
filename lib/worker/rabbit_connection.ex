@@ -94,7 +94,11 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
 
   @impl true
   def handle_call(:conn, _from, %State{connection: connection} = state) do
-    {:reply, {:ok, connection}, state}
+    if Process.alive?(connection.pid) do
+      {:reply, {:ok, connection}, state}
+    else
+      {:reply, {:ok, :disconnected}, state}
+    end
   end
 
   # TODO: improve better pooling of channels
@@ -191,9 +195,24 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
 
   # Connection crashed/closed
   @impl true
-  def handle_info({:EXIT, pid, reason}, %{connection: %{pid: pid}} = state) do
-    Logger.error("[Rabbit] connection lost reason: #{inspect(reason)}")
-    {:stop, reason, state}
+  def handle_info({:EXIT, pid, reason}, %{connection: %{pid: pid}, config: config} = state) do
+    Logger.error("[Rabbit] connection lost, attempting to reconnect reason: #{inspect(reason)}")
+    # TODO: use exponential backoff to reconnect
+    # TODO: use circuit breaker to fail fast
+    schedule_connect(config)
+    {:noreply, %State{state | connection: nil, channels: [], monitors: []}}
+  end
+
+  # Connection crashed so channels are going to crash too
+  @impl true
+  def handle_info(
+        {:EXIT, pid, reason},
+        %{connection: nil, channels: channels, monitors: monitors} = state
+      ) do
+    Logger.error("[Rabbit] connection lost, removing channel reason: #{inspect(reason)}")
+    new_channels = remove_channel(channels, pid)
+    new_monitors = remove_monitor(monitors, pid)
+    {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
   end
 
   # Channel crashed/closed, Connection crashed/closed
@@ -202,7 +221,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         {:EXIT, pid, reason},
         %{channels: channels, connection: conn, adapter: adapter, monitors: monitors} = state
       ) do
-    Logger.error("[Rabbit] channel lost reason: #{inspect(reason)}")
+    Logger.warn("[Rabbit] channel lost reason: #{inspect(reason)}")
     new_channels = remove_channel(channels, pid)
     new_monitors = remove_monitor(monitors, pid)
 
@@ -211,9 +230,9 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         true = Process.link(channel.pid)
         {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
 
-      {:error, :closing} = error ->
-        # RabbitMQ Connection is closed. nothing to do
-        {:stop, error, state}
+      {:error, :closing} ->
+        # RabbitMQ Connection is closed. nothing to do, wait for reconnections
+        {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
     end
   end
 
@@ -239,13 +258,9 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
 
   @impl true
   def terminate(_reason, %{connection: connection, adapter: adapter}) do
-    if Process.alive?(connection.pid) do
+    if connection && Process.alive?(connection.pid) do
       adapter.close_connection(connection)
     end
-  end
-
-  def terminate(_reason, _state) do
-    :ok
   end
 
   #############
