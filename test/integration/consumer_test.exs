@@ -4,6 +4,7 @@ defmodule ExRabbitPool.ConsumerTest do
   alias ExRabbitPool.Worker.SetupQueue
   alias ExRabbitPool.RabbitMQ
   alias AMQP.Queue
+  alias ExRabbitPool.Test.Helpers
 
   @moduletag :integration
 
@@ -27,18 +28,6 @@ defmodule ExRabbitPool.ConsumerTest do
       |> binary_part(0, 8)
 
     "test.queue-" <> rnd
-  end
-
-  defp wait_for(timeout \\ 1000, f)
-  defp wait_for(0, _), do: {:error, "Error - Timeout"}
-
-  defp wait_for(timeout, f) do
-    if f.() do
-      :ok
-    else
-      :timer.sleep(10)
-      wait_for(timeout - 10, f)
-    end
   end
 
   setup do
@@ -92,7 +81,7 @@ defmodule ExRabbitPool.ConsumerTest do
       assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
 
       assert :ok =
-               wait_for(fn ->
+               Helpers.wait_for(fn ->
                  {:ok, result} = Queue.status(channel, queue)
                  result == %{consumer_count: 1, message_count: 0, queue: queue}
                end)
@@ -110,7 +99,7 @@ defmodule ExRabbitPool.ConsumerTest do
       assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
 
       assert :ok =
-               wait_for(fn ->
+               Helpers.wait_for(fn ->
                  {:ok, result} = Queue.status(channel, queue)
                  result == %{consumer_count: 1, message_count: 0, queue: queue}
                end)
@@ -127,7 +116,7 @@ defmodule ExRabbitPool.ConsumerTest do
 
     %{channel: channel, consumer_tag: consumer_tag} = :sys.get_state(consumer_pid)
     {:ok, ^consumer_tag} = RabbitMQ.cancel_consume(channel, consumer_tag)
-    assert :ok = wait_for(fn -> !Process.alive?(consumer_pid) end)
+    assert :ok = Helpers.wait_for(fn -> !Process.alive?(consumer_pid) end)
   end
 
   @tag capture_log: true
@@ -150,6 +139,6 @@ defmodule ExRabbitPool.ConsumerTest do
                     {:basic_cancel, %{consumer_tag: ^consumer_tag, no_wait: true}}},
                    1000
 
-    assert :ok = wait_for(fn -> !Process.alive?(consumer_pid) end)
+    assert :ok = Helpers.wait_for(fn -> !Process.alive?(consumer_pid) end)
   end
 end

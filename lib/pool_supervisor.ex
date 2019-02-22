@@ -18,7 +18,7 @@ defmodule ExRabbitPool.PoolSupervisor do
   @impl true
   def init(config) do
     children =
-      case Keyword.get(config, :connection_pools) do
+      case Keyword.get(config, :connection_pools, []) do
         [] ->
           []
 

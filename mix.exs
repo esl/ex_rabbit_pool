@@ -12,7 +12,8 @@ defmodule BugsBunny.MixProject do
       organization: "esl",
       description: "RabbitMQ connection pool library",
       package: package(),
-      source_url: "https://github.com/esl/ex_rabbitmq_pool"
+      source_url: "https://github.com/esl/ex_rabbitmq_pool",
+      elixirc_path: elixirc_paths(Mix.env())
     ]
   end
 
@@ -46,4 +47,7 @@ defmodule BugsBunny.MixProject do
       {:excoveralls, "~> 0.10.4", only: [:dev, :test], runtime: false}
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/helpers"]
+  defp elixirc_paths(_), do: ["lib"]
 end

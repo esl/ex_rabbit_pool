@@ -161,7 +161,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     # TODO: stop the worker when we couldn't reconnect several times
     case adapter.open_connection(config) do
       {:error, reason} ->
-        Logger.error("[Rabbit] error reason: #{inspect(reason)}")
+        Logger.error("[Rabbit] error opening a connection reason: #{inspect(reason)}")
         # TODO: use exponential backoff to reconnect
         # TODO: use circuit breaker to fail fast
         schedule_connect(config)
@@ -189,42 +189,32 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     end
   end
 
-  # connection crashed
+  # Connection crashed/closed
   @impl true
-  def handle_info({:EXIT, pid, reason}, %{connection: %{pid: pid}, config: config} = state) do
-    Logger.error("[Rabbit] connection lost, attempting to reconnect reason: #{inspect(reason)}")
-    # TODO: use exponential backoff to reconnect
-    # TODO: use circuit breaker to fail fast
-    schedule_connect(config)
-    {:noreply, %State{state | connection: nil}}
+  def handle_info({:EXIT, pid, reason}, %{connection: %{pid: pid}} = state) do
+    Logger.error("[Rabbit] connection lost reason: #{inspect(reason)}")
+    {:stop, reason, state}
   end
 
-  # connection crashed so channels are going to crash too
-  @impl true
-  def handle_info(
-        {:EXIT, pid, reason},
-        %{connection: nil, channels: channels, monitors: monitors} = state
-      ) do
-    Logger.error("[Rabbit] connection lost, removing channel reason: #{inspect(reason)}")
-    new_channels = remove_channel(channels, pid)
-    new_monitors = remove_monitor(monitors, pid)
-    {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
-  end
-
-  # connection did not crash but a channel did
+  # Channel crashed/closed, Connection crashed/closed
   @impl true
   def handle_info(
         {:EXIT, pid, reason},
         %{channels: channels, connection: conn, adapter: adapter, monitors: monitors} = state
       ) do
-    Logger.error("[Rabbit] channel lost, attempting to reconnect reason: #{inspect(reason)}")
-    # TODO: use exponential backoff to reconnect
-    # TODO: use circuit breaker to fail fast
+    Logger.error("[Rabbit] channel lost reason: #{inspect(reason)}")
     new_channels = remove_channel(channels, pid)
     new_monitors = remove_monitor(monitors, pid)
-    {:ok, channel} = start_channel(adapter, conn)
-    true = Process.link(channel.pid)
-    {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
+
+    case start_channel(adapter, conn) do
+      {:ok, channel} ->
+        true = Process.link(channel.pid)
+        {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
+
+      {:error, :closing} = error ->
+        # RabbitMQ Connection is closed. nothing to do
+        {:stop, error, state}
+    end
   end
 
   # if client holding a channel fails, then we need to take its channel back
@@ -249,10 +239,8 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
 
   @impl true
   def terminate(_reason, %{connection: connection, adapter: adapter}) do
-    try do
+    if Process.alive?(connection.pid) do
       adapter.close_connection(connection)
-    catch
-      _, _ -> :ok
     end
   end
 
@@ -276,18 +264,22 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   # TODO: maybe start channels on demand as needed and store them in the state for re-use
   @spec start_channel(module(), AMQP.Connection.t()) :: {:ok, AMQP.Channel.t()} | {:error, any()}
   defp start_channel(client, connection) do
-    case client.open_channel(connection) do
-      {:ok, _channel} = result ->
-        Logger.info("[Rabbit] channel connected")
-        result
+    if Process.alive?(connection.pid) do
+      case client.open_channel(connection) do
+        {:ok, _channel} = result ->
+          Logger.info("[Rabbit] channel connected")
+          result
 
-      {:error, reason} = error ->
-        Logger.error("[Rabbit] error starting channel reason: #{inspect(reason)}")
-        error
+        {:error, reason} = error ->
+          Logger.error("[Rabbit] error starting channel reason: #{inspect(reason)}")
+          error
 
-      error ->
-        Logger.error("[Rabbit] error starting channel reason: #{inspect(error)}")
-        {:error, error}
+        error ->
+          Logger.error("[Rabbit] error starting channel reason: #{inspect(error)}")
+          {:error, error}
+      end
+    else
+      {:error, :closing}
     end
   end
 
