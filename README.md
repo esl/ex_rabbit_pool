@@ -22,7 +22,7 @@ end
 
 ## General Overview
 
-- `ex_rabbitmq_pool` creates a pool of connections to RabbitMQ
+- `ex_rabbitmq_pool` creates a pool or many pools of connections to RabbitMQ
 - each connection worker traps exits and links the connection process to it
 - each connection worker creates a pool of channels and links them to it
 - when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
@@ -77,7 +77,7 @@ rabbitmq_conn_pool = [
 
 ExRabbitPool.PoolSupervisor.start_link(
   rabbitmq_config: rabbitmq_config,
-  rabbitmq_conn_pool: rabbitmq_conn_pool
+  connection_pools: [rabbitmq_conn_pool]
 )
 ```
 
@@ -118,7 +118,7 @@ rabbitmq_conn_pool = [...]
 
 ExRabbitPool.PoolSupervisor.start_link(
   rabbitmq_config: rabbitmq_config,
-  rabbitmq_conn_pool: rabbitmq_conn_pool
+  connection_pools: [rabbitmq_conn_pool]
 )
 ```
 
@@ -152,6 +152,6 @@ rabbitmq_conn_pool = [...]
 
 ExRabbitPool.PoolSupervisor.start_link(
   rabbitmq_config: rabbitmq_config,
-  rabbitmq_conn_pool: rabbitmq_conn_pool
+  connection_pools: [rabbitmq_conn_pool]
 )
 ```
