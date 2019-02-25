@@ -18,20 +18,13 @@ defmodule ExRabbitPool.PoolSupervisor do
   @impl true
   def init(config) do
     children =
-      case Keyword.get(config, :connection_pools, []) do
-        [] ->
-          []
-
-        connection_pools ->
-          rabbitmq_config = Keyword.get(config, :rabbitmq_config, [])
-
-          Enum.map(connection_pools, fn pool_config ->
-            {_, pool_id} = Keyword.fetch!(pool_config, :name)
-            # We are using poolboy's pool as a fifo queue so we can distribute the
-            # load between workers
-            pool_config = Keyword.merge(pool_config, strategy: :fifo)
-            :poolboy.child_spec(pool_id, pool_config, rabbitmq_config)
-          end)
+      for pool_config <- Keyword.get(config, :connection_pools, []) do
+        rabbitmq_config = Keyword.get(config, :rabbitmq_config, [])
+        {_, pool_id} = Keyword.fetch!(pool_config, :name)
+        # We are using poolboy's pool as a fifo queue so we can distribute the
+        # load between workers
+        pool_config = Keyword.merge(pool_config, strategy: :fifo)
+        :poolboy.child_spec(pool_id, pool_config, rabbitmq_config)
       end
 
     # if the pool of rabbit connection crashes, try to setup the queues again
