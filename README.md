@@ -26,6 +26,8 @@ end
 - each connection worker traps exits and links the connection process to it
 - each connection worker creates a pool of channels and links them to it
 - when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
+- in case you don't want to pool channels, you can disable this feature by
+setting the `channels` number to 0, then you can create channels on demand
 
 ## High Level Architecture
 
@@ -100,11 +102,11 @@ end)
 
 We support setting up queues when starting up the supervision tree via
 `ExRabbitPool.Worker.SetupQueue`, right now it doesn't handle reconnect logic
-for you, so if you have a reconnection and you are working with auto-delete
+for you, so if you have a reconnection and you are working with `auto_delete: true`
 queues, you need to handle this case by your self (re-create those queues because
-if connectivity drops, auto-delete queues are going to be de deleted automatically
-and if you try to use one of them you would have an error as the queue no
-longer exist).
+if connectivity drops, `auto_delete: true` queues are going to be de deleted
+automatically and if you try to use one of them you would have an error as the
+queue no longer exist).
 
 Images are taken from [RabbitMQ Tutorials](https://www.rabbitmq.com/tutorials/tutorial-four-python.html)
 
