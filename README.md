@@ -15,22 +15,26 @@ def deps do
 end
 ```
 
-* [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbitmq_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbitmq_pool?branch=master)
-* [![Build Status](https://travis-ci.com/esl/ex_rabbitmq_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbitmq_pool)
-* [HexDocs](https://hexdocs.pm/ex_rabbitmq_pool)
-* [Hex.pm](https://hex.pm/packages/ex_rabbitmq_pool)
+*  [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbitmq_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbitmq_pool?branch=master)
+
+*  [![Build Status](https://travis-ci.com/esl/ex_rabbitmq_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbitmq_pool)
+
+*  [HexDocs](https://hexdocs.pm/ex_rabbitmq_pool)
+
+*  [Hex.pm](https://hex.pm/packages/ex_rabbitmq_pool)
 
 ## General Overview
 
-- `ex_rabbitmq_pool` creates a pool or many pools of connections to RabbitMQ
+*  `ex_rabbitmq_pool` creates a pool or many pools of connections to RabbitMQ
 
-- each connection worker traps exits and links the connection process to it
+*  each connection worker traps exits and links the connection process to it
 
-- each connection worker creates a pool of channels and links them to it
+*  each connection worker creates a pool of channels and links them to it
 
-- when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
+*  when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
 
-- in case you don't want to pool channels, you can disable this feature by setting the `channels` number to 0, then you can create channels on demand
+*  in case you don't want to pool channels, you can disable this feature 
+by setting the `channels` number to 0, then you can create channels on demand
 
 ## High Level Architecture
 
