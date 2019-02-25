@@ -13,6 +13,7 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
       channels: 1,
       port: String.to_integer(System.get_env("EX_RABBIT_POOL_PORT") || "5672")
     ]
+
     {:ok, config: rabbitmq_config}
   end
 
@@ -51,10 +52,12 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
 
     assert logs =~ "[Rabbit] channel lost reason: :normal"
     assert logs =~ "[Rabbit] error starting channel reason: :closing"
-    assert logs =~ "[Rabbit] connection lost, attempting to reconnect reason: {:shutdown, :normal}"
+
+    assert logs =~
+             "[Rabbit] connection lost, attempting to reconnect reason: {:shutdown, :normal}"
   end
 
-  test "creates a new channel to when a channel crashes", %{config: config} do
+  test "creates a new channel when a channel crashes", %{config: config} do
     pid = start_supervised!({ConnWorker, [{:reconnect_interval, 10} | config]})
     :erlang.trace(pid, true, [:receive])
 
@@ -87,5 +90,14 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
     :ok = AMQP.Channel.close(channel)
     %{channels: channels} = ConnWorker.state(pid)
     assert Enum.empty?(channels)
+  end
+
+  test "creates a new channel when checkin back a channel", %{config: config} do
+    pid = start_supervised!({ConnWorker, config})
+    assert {:ok, channel} = ConnWorker.checkout_channel(pid)
+    assert %{channels: []} = ConnWorker.state(pid)
+    assert :ok = ConnWorker.checkin_channel(pid, channel)
+    assert %{channels: [channel2]} = ConnWorker.state(pid)
+    refute channel == channel2
   end
 end

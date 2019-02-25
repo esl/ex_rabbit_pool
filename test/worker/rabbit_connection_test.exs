@@ -11,10 +11,7 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
       channels: 5,
       port: String.to_integer(System.get_env("EX_RABBIT_POOL_PORT") || "5672"),
       queue: "test.queue",
-      exchange: "",
-      adapter: FakeRabbitMQ,
-      queue_options: [auto_delete: true],
-      exchange_options: [auto_delete: true]
+      adapter: FakeRabbitMQ
     ]
 
     {:ok, config: rabbitmq_config}
@@ -31,16 +28,6 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     pid = start_supervised!({ConnWorker, Keyword.delete(config, :channels)})
     %{channels: channels} = ConnWorker.state(pid)
     assert length(channels) == 10
-  end
-
-  test "gets a channel and put it back", %{config: config} do
-    pid = start_supervised!({ConnWorker, config})
-    assert {:ok, channel} = ConnWorker.checkout_channel(pid)
-    %{channels: channels} = ConnWorker.state(pid)
-    assert length(channels) == 4
-    assert :ok = ConnWorker.checkin_channel(pid, channel)
-    %{channels: channels} = ConnWorker.state(pid)
-    assert length(channels) == 5
   end
 
   test "return :out_of_channels when all channels are holded by clients", %{config: config} do
