@@ -3,7 +3,8 @@ defmodule ExRabbitPool.Integration.ApiTest do
 
   import ExUnit.CaptureLog
   alias ExRabbitPool.RabbitMQ
-  alias ExRabbitPool.Worker.RabbitConnection
+  alias ExRabbitPool.Worker.{RabbitConnection, SetupQueue}
+
 
   @moduletag :integration
 
@@ -13,17 +14,7 @@ defmodule ExRabbitPool.Integration.ApiTest do
 
     rabbitmq_config = [
       channels: 1,
-      port: String.to_integer(System.get_env("EX_RABBIT_POOL_PORT") || "5672"),
-      queues: [
-        [
-          # fire and forget queue
-          queue_name: "",
-          exchange: "",
-          queue_options: [auto_delete: true, exclusive: true],
-          exchange_options: [auto_delete: true, exclusive: true]
-        ]
-      ],
-      adapter: RabbitMQ
+      port: String.to_integer(System.get_env("EX_RABBIT_POOL_PORT") || "5672")
     ]
 
     rabbitmq_conn_pool = [
@@ -38,11 +29,26 @@ defmodule ExRabbitPool.Integration.ApiTest do
       start:
         {ExRabbitPool.PoolSupervisor, :start_link,
          [
-           [rabbitmq_config: rabbitmq_config, rabbitmq_conn_pool: rabbitmq_conn_pool],
+           [rabbitmq_config: rabbitmq_config, connection_pools: [rabbitmq_conn_pool]],
            ExRabbitPool.PoolSupervisorTest
          ]},
       type: :supervisor
     })
+
+    start_supervised!(
+      {SetupQueue,
+       {pool_id,
+        [
+          queues: [
+            [
+              queue_name: "",
+              exchange: "",
+              queue_options: [auto_delete: true, exclusive: true],
+              exchange_options: [auto_delete: true, exclusive: true]
+            ]
+          ]
+        ]}}
+    )
 
     {:ok, pool_id: pool_id}
   end
@@ -137,7 +143,7 @@ defmodule ExRabbitPool.Integration.ApiTest do
         assert length(channels) == 1
       end)
 
-    assert logs =~ "[Rabbit] channel lost, attempting to reconnect reason: :normal"
+    assert logs =~ "[Rabbit] channel lost reason: :normal"
   end
 
   test "creates queue with exchange and bindings", %{pool_id: pool_id} do

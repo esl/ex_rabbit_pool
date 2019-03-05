@@ -29,10 +29,10 @@ defmodule ExRabbitPool.ConsumerTest do
     "test.queue-" <> rnd
   end
 
-  defp wait_for(timeout \\ 1000, f)
-  defp wait_for(0, _), do: {:error, "Error - Timeout"}
+  def wait_for(timeout \\ 1000, f)
+  def wait_for(0, _), do: {:error, "Error - Timeout"}
 
-  defp wait_for(timeout, f) do
+  def wait_for(timeout, f) do
     if f.() do
       :ok
     else
@@ -61,7 +61,7 @@ defmodule ExRabbitPool.ConsumerTest do
       start:
         {ExRabbitPool.PoolSupervisor, :start_link,
          [
-           [rabbitmq_config: rabbitmq_config, rabbitmq_conn_pool: rabbitmq_conn_pool],
+           [rabbitmq_config: rabbitmq_config, connection_pools: [rabbitmq_conn_pool]],
            ExRabbitPool.PoolSupervisorTest
          ]},
       type: :supervisor
@@ -86,34 +86,34 @@ defmodule ExRabbitPool.ConsumerTest do
   end
 
   test "should be able to consume messages out of rabbitmq", %{pool_id: pool_id, queue: queue} do
-    start_supervised!({TestConsumer, pool_id: pool_id, queue: queue})
+    pid = start_supervised!({TestConsumer, pool_id: pool_id, queue: queue})
+    :erlang.trace(pid, true, [:receive])
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
-
-      assert :ok =
-               wait_for(fn ->
-                 {:ok, result} = Queue.status(channel, queue)
-                 result == %{consumer_count: 1, message_count: 0, queue: queue}
-               end)
+      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
+      {:ok, result} = Queue.status(channel, queue)
+      assert result == %{consumer_count: 1, message_count: 0, queue: queue}
     end)
   end
 
-  @tag capture_io: true
   test "should be able to consume messages out of rabbitmq with default consumer", %{
     pool_id: pool_id,
     queue: queue
   } do
-    start_supervised!({TestDefaultConsumer, pool_id: pool_id, queue: queue})
+    pid = start_supervised!({TestDefaultConsumer, pool_id: pool_id, queue: queue})
+    Process.group_leader(pid, self())
+    :erlang.trace(pid, true, [:receive])
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
+      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
 
-      assert :ok =
-               wait_for(fn ->
-                 {:ok, result} = Queue.status(channel, queue)
-                 result == %{consumer_count: 1, message_count: 0, queue: queue}
-               end)
+      assert_receive {:io_request, ^pid, _,
+                      {:put_chars, :unicode, "[*] RabbitMQ message received: Hello Consumer!\n"}}
+
+      {:ok, result} = Queue.status(channel, queue)
+      assert result == %{consumer_count: 1, message_count: 0, queue: queue}
     end)
   end
 

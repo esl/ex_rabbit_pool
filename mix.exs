@@ -12,7 +12,7 @@ defmodule BugsBunny.MixProject do
       organization: "esl",
       description: "RabbitMQ connection pool library",
       package: package(),
-      source_url: "https://github.com/esl/ex_rabbitmq_pool"
+      source_url: "https://github.com/esl/ex_rabbitmq_pool",
     ]
   end
 

@@ -15,17 +15,26 @@ def deps do
 end
 ```
 
-* [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbitmq_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbitmq_pool?branch=master)
-* [![Build Status](https://travis-ci.com/esl/ex_rabbitmq_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbitmq_pool)
-* [HexDocs](https://hexdocs.pm/ex_rabbitmq_pool)
-* [Hex.pm](https://hex.pm/packages/ex_rabbitmq_pool)
+*  [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbitmq_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbitmq_pool?branch=master)
+
+*  [![Build Status](https://travis-ci.com/esl/ex_rabbitmq_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbitmq_pool)
+
+*  [HexDocs](https://hexdocs.pm/ex_rabbitmq_pool)
+
+*  [Hex.pm](https://hex.pm/packages/ex_rabbitmq_pool)
 
 ## General Overview
 
-- `ex_rabbitmq_pool` creates a pool of connections to RabbitMQ
-- each connection worker traps exits and links the connection process to it
-- each connection worker creates a pool of channels and links them to it
-- when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
+*  `ex_rabbitmq_pool` creates a pool or many pools of connections to RabbitMQ
+
+*  each connection worker traps exits and links the connection process to it
+
+*  each connection worker creates a pool of channels and links them to it
+
+*  when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
+
+*  in case you don't want to pool channels, you can disable this feature 
+by setting the `channels` number to 0, then you can create channels on demand
 
 ## High Level Architecture
 
@@ -52,24 +61,28 @@ Also:
 
 ![supervisor diagram](https://user-images.githubusercontent.com/1157892/52127565-681b8400-2600-11e9-8c37-34287e4c9b2c.png)
 
-## Setting Up Queues on Start Up
+## Setting Up Multiple Connection pools
 
-Images are taken from [RabbitMQ Tutorials](https://www.rabbitmq.com/tutorials/tutorial-four-python.html)
+It’s a good practice to not have consumers and producers on the same connection
+(since if something goes to flow mode the connection will be blocked and
+consumers won’t be able to help RabbitMQ to offload all the messages), that's
+why we support setting up multiple queues thanks to poolboy
 
-### Basic config - Without Setting Any Queue
-
-When you want to configure your self the queues on the right time for you, not on start up
-
-```ex
-# Rabbit Connection Configuration
+```elixir
 rabbitmq_config = [
   channels: 1,
-  port: "5672"
 ]
 
 # Connection Pool Configuration
-rabbitmq_conn_pool = [
-  name: {:local, :rabbit_pool},
+producers_conn_pool = [
+  name: {:local, :producers_pool},
+  worker_module: ExRabbitPool.Worker.RabbitConnection,
+  size: 1,
+  max_overflow: 0
+]
+
+consumers_conn_pool = [
+  name: {:local, :consumers_pool},
   worker_module: ExRabbitPool.Worker.RabbitConnection,
   size: 1,
   max_overflow: 0
@@ -77,17 +90,43 @@ rabbitmq_conn_pool = [
 
 ExRabbitPool.PoolSupervisor.start_link(
   rabbitmq_config: rabbitmq_config,
-  rabbitmq_conn_pool: rabbitmq_conn_pool
+  connection_pools: [producers_conn_pool, consumers_conn_pool]
 )
+
+producers_conn = ExRabbitPool.get_connection(:producers_pool)
+consumers_conn = ExRabbitPool.get_connection(:consumers_pool)
+
+ExRabbitPool.with_channel(:producers_pool, fn {:ok, channel} ->
+  ...
+end)
+
+ExRabbitPool.with_channel(:consumers_pool, fn {:ok, channel} ->
+  ...
+end)
 ```
+
+## Setting Up Queues on Start Up
+
+We support setting up queues when starting up the supervision tree via
+`ExRabbitPool.Worker.SetupQueue`, right now it doesn't handle reconnect logic
+for you, so if you have a reconnection and you are working with `auto_delete: true`
+queues, you need to handle this case by your self (re-create those queues because
+if connectivity drops, `auto_delete: true` queues are going to be de deleted
+automatically and if you try to use one of them you would have an error as the
+queue no longer exist).
+
+Images are taken from [RabbitMQ Tutorials](https://www.rabbitmq.com/tutorials/tutorial-four-python.html)
 
 ### Setting up a direct exchange with bindings
 
 ![Direct Exchange Multiple](https://www.rabbitmq.com/img/tutorials/direct-exchange.png)
 
-```ex
+```elixir
 rabbitmq_config = [
   ..., # Basic Rabbit Connection Configuration
+]
+
+queues_config = [
   queues: [
     [
       queue_name: "Q1",
@@ -118,17 +157,22 @@ rabbitmq_conn_pool = [...]
 
 ExRabbitPool.PoolSupervisor.start_link(
   rabbitmq_config: rabbitmq_config,
-  rabbitmq_conn_pool: rabbitmq_conn_pool
+  connection_pools: [rabbitmq_conn_pool]
 )
+
+ExRabbitPool.Worker.SetupQueue.start_link({pool_id, queues_config})
 ```
 
 ### Setting up a direct exchange with multiple bindings
 
 ![Direct Exchange Multiple](https://www.rabbitmq.com/img/tutorials/direct-exchange-multiple.png)
 
-```ex
+```elixir
 rabbitmq_config = [
   ..., # Basic Rabbit Connection Configuration
+]
+
+queues_config = [
   queues: [
     [
       queue_name: "Q1",
@@ -152,6 +196,8 @@ rabbitmq_conn_pool = [...]
 
 ExRabbitPool.PoolSupervisor.start_link(
   rabbitmq_config: rabbitmq_config,
-  rabbitmq_conn_pool: rabbitmq_conn_pool
+  connection_pools: [rabbitmq_conn_pool]
 )
+
+ExRabbitPool.Worker.SetupQueue.start_link({pool_id, queues_config})
 ```

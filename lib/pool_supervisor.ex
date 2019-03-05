@@ -3,7 +3,7 @@ defmodule ExRabbitPool.PoolSupervisor do
 
   alias ExRabbitPool.Worker.SetupQueue
 
-  @type config :: [rabbitmq_config: keyword(), rabbitmq_conn_pool: keyword()]
+  @type config :: [rabbitmq_config: keyword(), connection_pools: list()]
 
   @spec start_link(config()) :: Supervisor.on_start()
   def start_link(config) do
@@ -18,20 +18,13 @@ defmodule ExRabbitPool.PoolSupervisor do
   @impl true
   def init(config) do
     children =
-      case Keyword.get(config, :rabbitmq_conn_pool) do
-        [] ->
-          []
-
-        rabbitmq_conn_pool ->
-          rabbitmq_config = Keyword.get(config, :rabbitmq_config, [])
-          {_, pool_id} = Keyword.fetch!(rabbitmq_conn_pool, :name)
-          # We are using poolboy's pool as a fifo queue so we can distribute the
-          # load between workers
-          rabbitmq_conn_pool = Keyword.merge(rabbitmq_conn_pool, strategy: :fifo)
-          [
-            :poolboy.child_spec(pool_id, rabbitmq_conn_pool, rabbitmq_config),
-            {SetupQueue, {pool_id, rabbitmq_config}}
-          ]
+      for pool_config <- Keyword.get(config, :connection_pools, []) do
+        rabbitmq_config = Keyword.get(config, :rabbitmq_config, [])
+        {_, pool_id} = Keyword.fetch!(pool_config, :name)
+        # We are using poolboy's pool as a fifo queue so we can distribute the
+        # load between workers
+        pool_config = Keyword.merge(pool_config, strategy: :fifo)
+        :poolboy.child_spec(pool_id, pool_config, rabbitmq_config)
       end
 
     # if the pool of rabbit connection crashes, try to setup the queues again
