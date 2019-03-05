@@ -5,7 +5,6 @@ defmodule ExRabbitPool.Integration.ApiTest do
   alias ExRabbitPool.RabbitMQ
   alias ExRabbitPool.Worker.{RabbitConnection, SetupQueue}
 
-
   @moduletag :integration
 
   setup do
@@ -59,7 +58,7 @@ defmodule ExRabbitPool.Integration.ApiTest do
     end)
   end
 
-  test "returns out of channels when there aren't more channels", %{pool_id: pool_id} do
+  test "returns :out_of_channels when there aren't more channels", %{pool_id: pool_id} do
     ExRabbitPool.with_channel(pool_id, fn {:ok, _channel} ->
       ExRabbitPool.with_channel(pool_id, fn {:error, error} ->
         assert error == :out_of_channels
@@ -70,12 +69,14 @@ defmodule ExRabbitPool.Integration.ApiTest do
   test "returns channel to pool after client actions", %{pool_id: pool_id} do
     conn_worker = :poolboy.checkout(pool_id)
     :ok = :poolboy.checkin(pool_id, conn_worker)
+    %{channels: [channel1]} = RabbitConnection.state(conn_worker)
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, _channel} ->
       assert %{channels: []} = RabbitConnection.state(conn_worker)
     end)
 
-    assert %{channels: [channel]} = RabbitConnection.state(conn_worker)
+    assert %{channels: [channel2]} = RabbitConnection.state(conn_worker)
+    refute channel1 == channel2
   end
 
   test "gets connection to open channel manually", %{pool_id: pool_id} do
@@ -129,11 +130,12 @@ defmodule ExRabbitPool.Integration.ApiTest do
           spawn(fn ->
             ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
               :ok = AMQP.Channel.close(channel)
+              :timer.sleep(500)
             end)
           end)
 
         ref = Process.monitor(client_pid)
-        assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}, 500
+        assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}, 1000
 
         assert_receive {:trace, ^conn_worker, :receive,
                         {:"$gen_cast", {:checkin_channel, _channel}}}

@@ -143,19 +143,36 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     {:reply, state, state}
   end
 
-  # Puts back a channel into the channel pool, demonitors the client that was
-  # holding it and deletes the monitor from the monitors list
+  # When checkin back a channel to the pool is a good practice to not re-use
+  # channels, so, we need to remove it from the channel list, unlink it and
+  # start a new one
   @impl true
-  def handle_cast({:checkin_channel, channel}, %{channels: channels, monitors: monitors} = state) do
-    case Enum.find(monitors, fn {_ref, c} -> channel == c end) do
-      # checkin unmonitored channel :thinking_face:
-      nil ->
-        {:noreply, state}
+  def handle_cast(
+        {:checkin_channel, %{pid: pid} = channel},
+        %{connection: conn, adapter: adapter, channels: channels, monitors: monitors} = state
+      ) do
+    # only start a new channel when checkin back a channel that isn't removed yet
+    # this can happen when a channel crashed or is closed when a client holds it
+    # so we get an `:EXIT` message and a `:checkin_channel` message in no given
+    # order
+    if find_channel(pid, channels, monitors) do
+      new_channels = remove_channel(channels, pid)
+      new_monitors = remove_monitor(monitors, pid)
+      true = Process.unlink(pid)
+      # ommit the result
+      adapter.close_channel(channel)
 
-      {ref, _} = returned ->
-        true = Process.demonitor(ref)
-        new_monitors = List.delete(monitors, returned)
-        {:noreply, %State{state | channels: [channel | channels], monitors: new_monitors}}
+      case start_channel(adapter, conn) do
+        {:ok, channel} ->
+          true = Process.link(channel.pid)
+          {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
+
+        {:error, :closing} ->
+          # RabbitMQ Connection is closed. nothing to do, wait for reconnection
+          {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
+      end
+    else
+      {:noreply, state}
     end
   end
 
@@ -222,17 +239,23 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         %{channels: channels, connection: conn, adapter: adapter, monitors: monitors} = state
       ) do
     Logger.warn("[Rabbit] channel lost reason: #{inspect(reason)}")
-    new_channels = remove_channel(channels, pid)
-    new_monitors = remove_monitor(monitors, pid)
+    # don't start a new channel if crashed channel doesn't belongs to the pool
+    # anymore
+    if find_channel(pid, channels, monitors) do
+      new_channels = remove_channel(channels, pid)
+      new_monitors = remove_monitor(monitors, pid)
 
-    case start_channel(adapter, conn) do
-      {:ok, channel} ->
-        true = Process.link(channel.pid)
-        {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
+      case start_channel(adapter, conn) do
+        {:ok, channel} ->
+          true = Process.link(channel.pid)
+          {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
 
-      {:error, :closing} ->
-        # RabbitMQ Connection is closed. nothing to do, wait for reconnections
-        {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
+        {:error, :closing} ->
+          # RabbitMQ Connection is closed. nothing to do, wait for reconnections
+          {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
+      end
+    else
+      {:noreply, state}
     end
   end
 
@@ -345,5 +368,12 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         true = Process.demonitor(ref)
         List.delete(monitors, returned)
     end
+  end
+
+  defp find_channel(channel_pid, channels, monitors) do
+    Enum.find(channels, &(&1.pid == channel_pid)) ||
+      Enum.find(monitors, fn {_ref, %{pid: pid}} ->
+        pid == channel_pid
+      end)
   end
 end
