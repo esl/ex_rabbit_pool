@@ -4,6 +4,7 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
   import ExUnit.CaptureLog
 
   alias ExRabbitPool.Worker.RabbitConnection, as: ConnWorker
+  alias ExRabbitPool.Worker.RabbitConnectionMonitor, as: Monitor
   alias AMQP.Connection
 
   @moduletag :integration
@@ -37,6 +38,7 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
 
   test "reconnects to rabbitmq when a connection is closed", %{config: config} do
     pid = start_supervised!({ConnWorker, [{:reconnect_interval, 10} | config]})
+    start_supervised!({Monitor, []})
     :erlang.trace(pid, true, [:receive])
 
     logs =
@@ -59,6 +61,7 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
 
   test "creates a new channel when a channel crashes", %{config: config} do
     pid = start_supervised!({ConnWorker, [{:reconnect_interval, 10} | config]})
+    start_supervised!({Monitor, []})
     :erlang.trace(pid, true, [:receive])
 
     logs =
@@ -74,8 +77,9 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
         ref = Process.monitor(client_pid)
         assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}
         assert_receive {:trace, ^pid, :receive, {:EXIT, ^channel_pid, :normal}}
-        %{channels: channels, monitors: monitors} = ConnWorker.state(pid)
+        %{channels: channels} = ConnWorker.state(pid)
         assert length(channels) == 1
+        monitors = Monitor.get_monitors()
         assert Enum.empty?(monitors)
       end)
 
@@ -94,6 +98,7 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
 
   test "creates a new channel when checkin back a channel", %{config: config} do
     pid = start_supervised!({ConnWorker, config})
+    start_supervised!({Monitor, []})
     assert {:ok, channel} = ConnWorker.checkout_channel(pid)
     assert %{channels: []} = ConnWorker.state(pid)
     assert :ok = ConnWorker.checkin_channel(pid, channel)

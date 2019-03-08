@@ -5,6 +5,7 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
 
   alias ExRabbitPool.FakeRabbitMQ
   alias ExRabbitPool.Worker.RabbitConnection, as: ConnWorker
+  alias ExRabbitPool.Worker.RabbitConnectionMonitor, as: Monitor
 
   setup do
     rabbitmq_config = [
@@ -33,10 +34,12 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
   test "return :out_of_channels when all channels are holded by clients", %{config: config} do
     new_config = Keyword.update!(config, :channels, fn _ -> 1 end)
     pid = start_supervised!({ConnWorker, new_config})
+    start_supervised!({Monitor, []})
     assert {:ok, channel} = ConnWorker.checkout_channel(pid)
     assert {:error, :out_of_channels} = ConnWorker.checkout_channel(pid)
-    %{channels: channels, monitors: monitors} = ConnWorker.state(pid)
+    %{channels: channels} = ConnWorker.state(pid)
     assert Enum.empty?(channels)
+    monitors = Monitor.get_monitors()
     assert length(monitors) == 1
     assert :ok = ConnWorker.checkin_channel(pid, channel)
   end
@@ -45,16 +48,19 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     config: config
   } do
     pid = start_supervised!({ConnWorker, config})
+    start_supervised!({Monitor, []})
     assert {:ok, channel} = ConnWorker.checkout_channel(pid)
-    %{monitors: monitors} = ConnWorker.state(pid)
+    monitors = Monitor.get_monitors()
     assert length(monitors) == 1
     assert :ok = ConnWorker.checkin_channel(pid, channel)
-    %{monitors: monitors} = ConnWorker.state(pid)
+    Process.sleep(2000)
+    monitors = Monitor.get_monitors()
     assert Enum.empty?(monitors)
   end
 
   test "channel is returned to the pool when a client holding it crashes", %{config: config} do
     pid = start_supervised!({ConnWorker, config})
+    start_supervised!({Monitor, []})
 
     client_pid =
       spawn(fn ->
@@ -63,7 +69,9 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
 
     ref = Process.monitor(client_pid)
     assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}
-    %{channels: channels, monitors: monitors} = ConnWorker.state(pid)
+    %{channels: channels} = ConnWorker.state(pid)
+    Process.sleep(2000)
+    monitors = Monitor.get_monitors()
     assert Enum.empty?(monitors)
     assert length(channels) == 5
   end
