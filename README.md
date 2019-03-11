@@ -25,7 +25,8 @@ end
 
 ## General Overview
 
-*  `ex_rabbitmq_pool` creates a pool or many pools of connections to RabbitMQ
+*  `ex_rabbitmq_pool` creates a pool or many pools of connections to RabbitMQ, we don't care about isolating access to each
+  worker that's why we use a pool purely in order to spread load (pool config strategy :fifo)
 
 *  each connection worker traps exits and links the connection process to it
 
