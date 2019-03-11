@@ -21,6 +21,7 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
   @tag capture_log: true
   test "reconnects to rabbitmq when a connection crashes", %{config: config} do
     pid = start_supervised!({ConnWorker, [{:reconnect_interval, 10} | config]})
+    start_supervised!({MonitorEts, []})
     :erlang.trace(pid, true, [:receive])
 
     logs =

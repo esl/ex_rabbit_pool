@@ -70,7 +70,6 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     ref = Process.monitor(client_pid)
     assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}
     %{channels: channels} = ConnWorker.state(pid)
-    Process.sleep(2000)
     monitors = MonitorEts.get_monitors()
     assert Enum.empty?(monitors)
     assert length(channels) == 5

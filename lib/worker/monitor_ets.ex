@@ -16,17 +16,19 @@ defmodule ExRabbitPool.Worker.MonitorEts do
 
   @doc false
   def get_monitors do
-    GenServer.call(@name, :monitors)
+    monitors = monitors()
   end
 
   @doc false
   def add(monitor) do
-    GenServer.cast(@name, {:add, monitor})
+    monitors_ets = monitors()
+    true = :ets.insert(@tab, {:monitors, [monitor|monitors_ets]})
   end
 
   @doc false
   def remove_monitor(pid) do
-    GenServer.cast(@name, {:remove, pid})
+    monitors_ets = monitors()
+    remove_monitor(monitors_ets, pid)
   end
 
   ######################
@@ -42,27 +44,8 @@ defmodule ExRabbitPool.Worker.MonitorEts do
   end
 
   @impl true
-  def handle_call(:monitors, _from, state) do
-    monitors = monitors()
-    {:reply, monitors, state}
-  end
-
-  @impl true
-  def handle_cast({:add, monitor}, state) do
-    monitors_ets = monitors()
-    true = :ets.insert(@tab, {:monitors, [monitor|monitors_ets]})
-    {:noreply, state}
-  end
-
-  def handle_cast({:remove, pid}, state) do
-    monitors_ets = monitors()
-    remove_monitor(monitors_ets, pid)
-    {:noreply, state}
-  end
-
-  @impl true
   def handle_info(msg, state) do
-    Logger.error("Unexpected message: #{msg}")
+    Logger.error("Unexpected message at MonitorEts: #{msg}")
     {:noreply, state}
   end
 

@@ -120,7 +120,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         {from_pid, _ref}, %{channels: [channel | rest]} = state
       ) do
     monitor_ref = Process.monitor(from_pid)
-    :ok = MonitorEts.add({monitor_ref, channel})
+    MonitorEts.add({monitor_ref, channel})
     {:reply, {:ok, channel}, %State{state | channels: rest}}
   end
 
@@ -269,8 +269,8 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       nil ->
         {:noreply, state}
 
-      {_ref, channel} = returned ->
-        MonitorEts.remove_monitor(returned)
+      {_ref, channel} = {_, %{pid: pid}} ->
+        MonitorEts.remove_monitor(pid)
         {:noreply, %State{state | channels: [channel | channels]}}
     end
   end
