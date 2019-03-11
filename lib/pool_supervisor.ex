@@ -1,8 +1,6 @@
 defmodule ExRabbitPool.PoolSupervisor do
   use Supervisor
 
-  alias ExRabbitPool.Worker.SetupQueue
-
   @type config :: [rabbitmq_config: keyword(), connection_pools: list()]
 
   @spec start_link(config()) :: Supervisor.on_start()
