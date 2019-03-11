@@ -13,8 +13,8 @@ defmodule ExRabbitPool do
   end
 
   @doc """
-  Gets a connection worker out of the pool and returns it back immediately so it
-  can be reused by another client
+  Retrieve a connection worker - we don't care about isolating access to each
+  worker - we use a pool purely in order to spread load (pool config strategy :fifo)
   """
   @spec get_connection_worker(atom()) :: pid()
   def get_connection_worker(pool_id) do
