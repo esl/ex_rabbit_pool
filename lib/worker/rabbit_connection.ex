@@ -144,7 +144,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   # start a new one
   @impl true
   def handle_cast(
-        {:checkin_channel, %{pid: pid} = channel},
+        {:checkin_channel, %{pid: pid} = old_channel},
         %{connection: conn, adapter: adapter, channels: channels} = state
       ) do
     # only start a new channel when checkin back a channel that isn't removed yet
@@ -156,13 +156,9 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       MonitorEts.remove_monitor(pid)
       true = Process.unlink(pid)
       # ommit the result
-      adapter.close_channel(channel)
-
-      case start_channel(adapter, conn) do
+      case replace_channel(old_channel, adapter, conn) do
         {:ok, channel} ->
-          true = Process.link(channel.pid)
           {:noreply, %State{state | channels: [channel | new_channels]}}
-
         {:error, :closing} ->
           # RabbitMQ Connection is closed. nothing to do, wait for reconnection
           {:noreply, %State{state | channels: new_channels}}
@@ -236,7 +232,9 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       ) do
     Logger.warn("[Rabbit] channel lost reason: #{inspect(reason)}")
     # don't start a new channel if crashed channel doesn't belongs to the pool
-    # anymore
+    # anymore, this can happen when a channel crashed or is closed when a client holds it
+    # so we get an `:EXIT` message and a `:checkin_channel` message in no given
+    # order
     if find_channel(pid, channels, MonitorEts.get_monitors()) do
       new_channels = remove_channel(channels, pid)
       MonitorEts.remove_monitor(pid)
@@ -262,9 +260,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         %{channels: channels} = state
       ) do
     MonitorEts.get_monitors()
-    |> Enum.find(fn {ref, _chan} ->
-      down_ref == ref
-    end)
+    |> Enum.find(fn {ref, _chan} -> down_ref == ref end)
     |> case do
       nil ->
         {:noreply, state}
@@ -339,5 +335,20 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       Enum.find(monitors, fn {_ref, %{pid: pid}} ->
         pid == channel_pid
       end)
+  end
+
+  defp replace_channel(old_channel, adapter, conn) do
+    true = Process.unlink(old_channel.pid)
+    # omit the result
+    adapter.close_channel(old_channel)
+
+    case start_channel(adapter, conn) do
+      {:ok, channel} = result ->
+        true = Process.link(channel.pid)
+        result
+
+      {:error, _reason} = error ->
+        error
+    end
   end
 end

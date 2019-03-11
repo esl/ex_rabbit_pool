@@ -58,21 +58,21 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     assert Enum.empty?(monitors)
   end
 
-  test "channel is returned to the pool when a client holding it crashes", %{config: config} do
-    pid = start_supervised!({ConnWorker, config})
+  test "creates a new channel when a client holding it crashes", %{config: config} do
+    new_config = Keyword.update!(config, :channels, fn _ -> 1 end)
+    pid = start_supervised!({ConnWorker, new_config})
     start_supervised!({MonitorEts, []})
+    %{channels: [channel]} = ConnWorker.state(pid)
 
     client_pid =
       spawn(fn ->
-        assert {:ok, channel} = ConnWorker.checkout_channel(pid)
+        assert {:ok, ^channel} = ConnWorker.checkout_channel(pid)
       end)
 
     ref = Process.monitor(client_pid)
     assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}
-    %{channels: channels} = ConnWorker.state(pid)
-    monitors = MonitorEts.get_monitors()
-    assert Enum.empty?(monitors)
-    assert length(channels) == 5
+    assert %{channels: channels} = ConnWorker.state(pid)
+    assert length(channels) == 1
   end
 
   test "returns error when disconnected", %{config: config} do
