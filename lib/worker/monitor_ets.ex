@@ -1,4 +1,4 @@
-defmodule ExRabbitPool.Worker.RabbitConnectionMonitor do
+defmodule ExRabbitPool.Worker.MonitorEts do
   use GenServer
 
   require Logger

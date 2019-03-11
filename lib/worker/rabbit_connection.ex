@@ -2,7 +2,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   use GenServer
 
   require Logger
-  alias ExRabbitPool.Worker.RabbitConnectionMonitor, as: Monitor
+  alias ExRabbitPool.Worker.MonitorEts
 
   @reconnect_interval 1_000
   @default_channels 10
@@ -120,7 +120,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         {from_pid, _ref}, %{channels: [channel | rest]} = state
       ) do
     monitor_ref = Process.monitor(from_pid)
-    :ok = Monitor.add({monitor_ref, channel})
+    :ok = MonitorEts.add({monitor_ref, channel})
     {:reply, {:ok, channel}, %State{state | channels: rest}}
   end
 
@@ -151,9 +151,9 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     # this can happen when a channel crashed or is closed when a client holds it
     # so we get an `:EXIT` message and a `:checkin_channel` message in no given
     # order
-    if find_channel(pid, channels, Monitor.get_monitors()) do
+    if find_channel(pid, channels, MonitorEts.get_monitors()) do
       new_channels = remove_channel(channels, pid)
-      Monitor.remove_monitor(pid)
+      MonitorEts.remove_monitor(pid)
       true = Process.unlink(pid)
       # ommit the result
       adapter.close_channel(channel)
@@ -224,7 +224,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       ) do
     Logger.error("[Rabbit] connection lost, removing channel reason: #{inspect(reason)}")
     new_channels = remove_channel(channels, pid)
-    Monitor.remove_monitor(pid)
+    MonitorEts.remove_monitor(pid)
     {:noreply, %State{state | channels: new_channels}}
   end
 
@@ -237,9 +237,9 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     Logger.warn("[Rabbit] channel lost reason: #{inspect(reason)}")
     # don't start a new channel if crashed channel doesn't belongs to the pool
     # anymore
-    if find_channel(pid, channels, Monitor.get_monitors()) do
+    if find_channel(pid, channels, MonitorEts.get_monitors()) do
       new_channels = remove_channel(channels, pid)
-      Monitor.remove_monitor(pid)
+      MonitorEts.remove_monitor(pid)
 
       case start_channel(adapter, conn) do
         {:ok, channel} ->
@@ -261,7 +261,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         {:DOWN, down_ref, :process, _, _},
         %{channels: channels} = state
       ) do
-    Monitor.get_monitors()
+    MonitorEts.get_monitors()
     |> Enum.find(fn {ref, _chan} ->
       down_ref == ref
     end)
@@ -270,7 +270,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         {:noreply, state}
 
       {_ref, channel} = returned ->
-        Monitor.remove_monitor(returned)
+        MonitorEts.remove_monitor(returned)
         {:noreply, %State{state | channels: [channel | channels]}}
     end
   end

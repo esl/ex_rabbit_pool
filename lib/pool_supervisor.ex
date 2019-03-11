@@ -1,7 +1,7 @@
 defmodule ExRabbitPool.PoolSupervisor do
   use Supervisor
 
-  alias ExRabbitPool.Worker.RabbitConnectionMonitor
+  alias ExRabbitPool.Worker.MonitorEts
 
   @type config :: [rabbitmq_config: keyword(), connection_pools: list()]
 
@@ -29,6 +29,6 @@ defmodule ExRabbitPool.PoolSupervisor do
 
     # if the pool of rabbit connection crashes, try to setup the queues again
     opts = [strategy: :rest_for_one]
-    Supervisor.init([{RabbitConnectionMonitor,[]}|children], opts)
+    Supervisor.init([{MonitorEts,[]}|children], opts)
   end
 end
