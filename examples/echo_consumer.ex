@@ -34,35 +34,3 @@ defmodule Example.EchoConsumer do
     :ok
   end
 end
-
-rabbitmq_config = [channels: 2]
-
-rabbitmq_conn_pool = [
-  name: {:local, :connection_pool},
-  worker_module: ExRabbitPool.Worker.RabbitConnection,
-  size: 1,
-  max_overflow: 0
-]
-
-{:ok, pid} =
-  ExRabbitPool.PoolSupervisor.start_link(
-    rabbitmq_config: rabbitmq_config,
-    rabbitmq_conn_pool: rabbitmq_conn_pool
-  )
-
-queue = "ex_rabbit_pool"
-exchange = "my_exchange"
-routing_key = "example"
-
-ExRabbitPool.with_channel(:connection_pool, fn {:ok, channel} ->
-  {:ok, _} = AMQP.Queue.declare(channel, queue, auto_delete: true, exclusive: true)
-  :ok = AMQP.Exchange.declare(channel, exchange, :direct, auto_delete: true, exclusive: true)
-  :ok = AMQP.Queue.bind(channel, queue, exchange, routing_key: routing_key)
-end)
-
-{:ok, consumer_pid} = Example.EchoConsumer.start_link(pool_id: :connection_pool, queue: queue)
-
-ExRabbitPool.with_channel(:connection_pool, fn {:ok, channel} ->
-  :ok = AMQP.Basic.publish(channel, exchange, routing_key, "Hello World!")
-  :ok = AMQP.Basic.publish(channel, exchange, routing_key, "Hell Yeah!")
-end)
