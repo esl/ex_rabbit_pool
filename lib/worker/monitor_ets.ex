@@ -16,18 +16,18 @@ defmodule ExRabbitPool.Worker.MonitorEts do
 
   @doc false
   def get_monitors do
-    monitors = monitors()
+    :ets.tab2list(@tab)
   end
 
   @doc false
   def add(monitor) do
-    monitors_ets = monitors()
-    true = :ets.insert(@tab, {:monitors, [monitor|monitors_ets]})
+    monitors_ets = :ets.tab2list(@tab)
+    true = :ets.insert(@tab, [monitor|monitors_ets])
   end
 
   @doc false
   def remove_monitor(pid) do
-    monitors_ets = monitors()
+    monitors_ets = :ets.tab2list(@tab)
     remove_monitor(monitors_ets, pid)
   end
 
@@ -39,7 +39,7 @@ defmodule ExRabbitPool.Worker.MonitorEts do
   def init(:ok) do
     :ets.new(@tab, [:set, :named_table, :public, read_concurrency: true,
                                                  write_concurrency: true])
-    true = :ets.insert(@tab, {:monitors, []})
+    true = :ets.insert(@tab, [])
     {:ok, %{}}
   end
 
@@ -53,11 +53,6 @@ defmodule ExRabbitPool.Worker.MonitorEts do
   ## Internal
   ##############
 
-  defp monitors do
-    [monitors: monitors_ets] = :ets.lookup(@tab, :monitors)
-    monitors_ets
-  end
-
   defp remove_monitor(monitors, client_ref) when is_reference(client_ref) do
     monitors
     |> Enum.find(fn {ref, _} -> client_ref == ref end)
@@ -65,10 +60,9 @@ defmodule ExRabbitPool.Worker.MonitorEts do
       nil ->
         monitors
 
-      {ref, _channel} = returned ->
-        true = Process.demonitor(ref)
-        true = :ets.insert(@tab, {:monitors, List.delete(monitors, returned)})
-        List.delete(monitors, returned)
+      {ref, _channel} ->
+        :ets.delete(@tab, ref)
+        ref
     end
   end
 
@@ -81,10 +75,9 @@ defmodule ExRabbitPool.Worker.MonitorEts do
       nil ->
         monitors
 
-      {ref, _} = returned ->
-        true = Process.demonitor(ref)
-        true = :ets.insert(@tab, {:monitors, List.delete(monitors, returned)})
-        List.delete(monitors, returned)
+      {ref, _} ->
+        :ets.delete(@tab, ref)
+        ref
     end
   end
 end

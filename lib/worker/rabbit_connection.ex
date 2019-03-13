@@ -153,7 +153,10 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     # order
     if find_channel(pid, channels, MonitorEts.get_monitors()) do
       new_channels = remove_channel(channels, pid)
-      MonitorEts.remove_monitor(pid)
+      ref = MonitorEts.remove_monitor(pid)
+      if is_reference(ref) do
+          true = Process.demonitor(ref)
+      end
       true = Process.unlink(pid)
       # ommit the result
       case replace_channel(old_channel, adapter, conn) do
@@ -220,7 +223,10 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       ) do
     Logger.error("[Rabbit] connection lost, removing channel reason: #{inspect(reason)}")
     new_channels = remove_channel(channels, pid)
-    MonitorEts.remove_monitor(pid)
+    ref = MonitorEts.remove_monitor(pid)
+    if is_reference(ref) do
+      true = Process.demonitor(ref)
+    end
     {:noreply, %State{state | channels: new_channels}}
   end
 
@@ -237,8 +243,10 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     # order
     if find_channel(pid, channels, MonitorEts.get_monitors()) do
       new_channels = remove_channel(channels, pid)
-      MonitorEts.remove_monitor(pid)
-
+      ref = MonitorEts.remove_monitor(pid)
+      if is_reference(ref) do
+        true = Process.demonitor(ref)
+      end
       case start_channel(adapter, conn) do
         {:ok, channel} ->
           true = Process.link(channel.pid)
@@ -266,7 +274,10 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         {:noreply, state}
 
       {_ref, channel} = {_, %{pid: pid}} ->
-        MonitorEts.remove_monitor(pid)
+        ref = MonitorEts.remove_monitor(pid)
+        if is_reference(ref) do
+          true = Process.demonitor(ref)
+        end
         {:noreply, %State{state | channels: [channel | channels]}}
     end
   end
