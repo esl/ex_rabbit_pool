@@ -12,7 +12,7 @@ defmodule BugsBunny.MixProject do
       organization: "esl",
       description: "RabbitMQ connection pool library",
       package: package(),
-      source_url: "https://github.com/esl/ex_rabbitmq_pool"
+      source_url: "https://github.com/esl/ex_rabbit_pool"
     ]
   end
 
@@ -20,7 +20,7 @@ defmodule BugsBunny.MixProject do
     [
       files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
       licenses: ["Apache 2"],
-      links: %{"GitHub" => "https://github.com/esl/ex_rabbitmq_pool"}
+      links: %{"GitHub" => "https://github.com/esl/ex_rabbit_pool"}
     ]
   end
 

@@ -1,31 +1,31 @@
-# `ex_rabbitmq_pool`
+# `ex_rabbit_pool`
 
 A RabbitMQ connection pooling library written in Elixir
 
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `ex_rabbitmq_pool` to your list of dependencies in `mix.exs`:
+by adding `ex_rabbit_pool` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:ex_rabbitmq_pool, "~> 1.0.0"}
+    {:ex_rabbit_pool, "~> 1.0.0"}
   ]
 end
 ```
 
-*  [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbitmq_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbitmq_pool?branch=master)
+*  [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbit_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbit_pool?branch=master)
 
-*  [![Build Status](https://travis-ci.com/esl/ex_rabbitmq_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbitmq_pool)
+*  [![Build Status](https://travis-ci.com/esl/ex_rabbit_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbit_pool)
 
-*  [HexDocs](https://hexdocs.pm/ex_rabbitmq_pool)
+*  [HexDocs](https://hexdocs.pm/ex_rabbit_pool)
 
-*  [Hex.pm](https://hex.pm/packages/ex_rabbitmq_pool)
+*  [Hex.pm](https://hex.pm/packages/ex_rabbit_pool)
 
 ## General Overview
 
-*  `ex_rabbitmq_pool` creates a pool or many pools of connections to RabbitMQ, we don't care about isolating access to each
+*  `ex_rabbit_pool` creates a pool or many pools of connections to RabbitMQ, we don't care about isolating access to each
   worker that's why we use a pool purely in order to spread load (pool config strategy :fifo)
 
 *  each connection worker traps exits and links the connection process to it
