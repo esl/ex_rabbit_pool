@@ -34,12 +34,6 @@ defmodule BugsBunny.MixProject do
   defp deps do
     [
       {:amqp, "~> 1.1"},
-      # amqp and tentacat depends on jsx
-      {:jsx, "2.8.2", override: true},
-      # https://github.com/pma/amqp/issues/99
-      {:ranch, "1.5.0", override: true},
-      # https://github.com/pma/amqp/issues/99
-      {:ranch_proxy_protocol, "~> 2.0", override: true},
       {:poolboy, "~> 1.5"},
       {:credo, "~> 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.18", only: :dev, runtime: false},
