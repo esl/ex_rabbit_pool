@@ -4,12 +4,11 @@ defmodule BugsBunny.MixProject do
   def project do
     [
       app: :ex_rabbit_pool,
-      version: "1.0.0",
+      version: "1.0.1",
       elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
-      organization: "esl",
       description: "RabbitMQ connection pool library",
       package: package(),
       source_url: "https://github.com/esl/ex_rabbit_pool"
@@ -19,8 +18,13 @@ defmodule BugsBunny.MixProject do
   defp package() do
     [
       files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
+      organization: "erlang_solutions",
       licenses: ["Apache 2"],
-      links: %{"GitHub" => "https://github.com/esl/ex_rabbit_pool"}
+      links: %{
+        "GitHub" => "https://github.com/esl/ex_rabbit_pool",
+        "Blog Post" =>
+          "https://www.erlang-solutions.com/blog/ex_rabbit_pool-open-source-amqp-connection-pool.html"
+      }
     ]
   end
 

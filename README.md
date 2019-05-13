@@ -10,53 +10,51 @@ by adding `ex_rabbit_pool` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_rabbit_pool, "~> 1.0.0"}
+    {:ex_rabbit_pool, "~> 1.0.1"}
   ]
 end
 ```
 
-*  [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbit_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbit_pool?branch=master)
+- [![Coverage Status](https://coveralls.io/repos/github/esl/ex_rabbit_pool/badge.svg?branch=master)](https://coveralls.io/github/esl/ex_rabbit_pool?branch=master)
 
-*  [![Build Status](https://travis-ci.com/esl/ex_rabbit_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbit_pool)
+- [![Build Status](https://travis-ci.com/esl/ex_rabbit_pool.svg?branch=master)](https://travis-ci.com/esl/ex_rabbit_pool)
 
-*  [HexDocs](https://hexdocs.pm/ex_rabbit_pool)
+- [HexDocs](https://hexdocs.pm/ex_rabbit_pool)
 
-*  [Hex.pm](https://hex.pm/packages/ex_rabbit_pool)
+- [Hex.pm](https://hex.pm/packages/ex_rabbit_pool)
 
 ## General Overview
 
-*  `ex_rabbit_pool` creates a pool or many pools of connections to RabbitMQ, we don't care about isolating access to each
+- `ex_rabbit_pool` creates a pool or many pools of connections to RabbitMQ, we don't care about isolating access to each
   worker that's why we use a pool purely in order to spread load (pool config strategy :fifo)
 
-*  each connection worker traps exits and links the connection process to it
+- each connection worker traps exits and links the connection process to it
 
-*  each connection worker creates a pool of channels and links them to it
+- each connection worker creates a pool of channels and links them to it
 
-*  when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
+- when a client checks out a channel out of the pool the connection worker monitors that client to return the channel into it in case of a crash
 
-*  in case you don't want to pool channels, you can disable this feature
-by setting the `channels` number to 0, then you can create channels on demand
+- in case you don't want to pool channels, you can disable this feature
+  by setting the `channels` number to 0, then you can create channels on demand
 
 ## High Level Architecture
 
-
 When starting a connection worker :
 
-* We start a pool of multiplexed channels to RabbitMQ
-* Store the channel pool to the connection workers state (we can move this later to ets).
+- We start a pool of multiplexed channels to RabbitMQ
+- Store the channel pool to the connection workers state (we can move this later to ets).
 
 Then:
 
-* The connection worker traps exists of RabbitMQ channels - which means that :
-    * If a channel crashes, the connection worker is going to be able to start another channel
-    * If a connection to RabbitMQ crashes we are going to be able to restart that connection, remove all crashed channels and then restart them with a new connection;
-
+- The connection worker traps exists of RabbitMQ channels - which means that :
+  - If a channel crashes, the connection worker is going to be able to start another channel
+  - If a connection to RabbitMQ crashes we are going to be able to restart that connection, remove all crashed channels and then restart them with a new connection;
 
 Also:
 
-* We are able to easily:
-    * Monitor clients accessing channels,
-    * Queue and dequeue channels from the pool in order to make them accessible to one client at a time reducing the potential for race conditions.
+- We are able to easily:
+  - Monitor clients accessing channels,
+  - Queue and dequeue channels from the pool in order to make them accessible to one client at a time reducing the potential for race conditions.
 
 ## Setup RabbitMQ with docker
 
