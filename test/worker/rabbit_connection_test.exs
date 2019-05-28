@@ -3,7 +3,7 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
 
   import ExUnit.CaptureLog
 
-  alias ExRabbitPool.FakeRabbitMQ
+  alias ExRabbitPool.{FakeRabbitMQ, MonitorsDB}
   alias ExRabbitPool.Worker.RabbitConnection, as: ConnWorker
 
   setup do
@@ -30,14 +30,23 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     assert length(channels) == 10
   end
 
+  test "adds record to monitors table when checking out a channel", %{config: config} do
+    new_config = Keyword.update!(config, :channels, fn _ -> 1 end)
+    pid = start_supervised!({ConnWorker, new_config})
+    assert {:ok, %{pid: pid} = channel} = ConnWorker.checkout_channel(pid)
+    %{monitors_db: monitors_db} = ConnWorker.state(pid)
+    assert {ref, ^channel} = MonitorsDB.find(monitors_db, pid)
+    assert is_reference(ref)
+  end
+
   test "return :out_of_channels when all channels are holded by clients", %{config: config} do
     new_config = Keyword.update!(config, :channels, fn _ -> 1 end)
     pid = start_supervised!({ConnWorker, new_config})
     assert {:ok, channel} = ConnWorker.checkout_channel(pid)
     assert {:error, :out_of_channels} = ConnWorker.checkout_channel(pid)
-    %{channels: channels, monitors: monitors} = ConnWorker.state(pid)
+    %{channels: channels, monitors_db: monitors_db} = ConnWorker.state(pid)
     assert Enum.empty?(channels)
-    assert length(monitors) == 1
+    assert length(:ets.tab2list(monitors_db)) == 1
     assert :ok = ConnWorker.checkin_channel(pid, channel)
   end
 
@@ -46,11 +55,11 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
   } do
     pid = start_supervised!({ConnWorker, config})
     assert {:ok, channel} = ConnWorker.checkout_channel(pid)
-    %{monitors: monitors} = ConnWorker.state(pid)
-    assert length(monitors) == 1
+    %{monitors_db: monitors_db} = ConnWorker.state(pid)
+    assert length(:ets.tab2list(monitors_db)) == 1
     assert :ok = ConnWorker.checkin_channel(pid, channel)
-    %{monitors: monitors} = ConnWorker.state(pid)
-    assert Enum.empty?(monitors)
+    %{monitors_db: monitors_db} = ConnWorker.state(pid)
+    assert Enum.empty?(:ets.tab2list(monitors_db))
   end
 
   test "creates a new channel when a client holding it crashes", %{config: config} do
@@ -65,8 +74,9 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
 
     ref = Process.monitor(client_pid)
     assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}
-    assert %{channels: channels, monitors: []} = ConnWorker.state(pid)
+    assert %{channels: channels, monitors_db: monitors_db} = ConnWorker.state(pid)
     assert length(channels) == 1
+    assert Enum.empty?(:ets.tab2list(monitors_db))
   end
 
   test "returns error when disconnected", %{config: config} do

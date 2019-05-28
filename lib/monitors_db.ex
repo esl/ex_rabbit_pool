@@ -12,23 +12,30 @@ defmodule ExRabbitPool.MonitorsDB do
     |> :ets.new([:set])
   end
 
-  @spec add_monitor(:ets.tid(), {reference(), pid()}) :: true
+  @spec add_monitor(:ets.tid(), {reference(), AMQP.Channel.t()}) :: true
   def add_monitor(ets, monitor) do
     :ets.insert(ets, monitor)
   end
 
-  @spec remove_monitor(:ets.tid(), pid() | reference()) :: true
-  def remove_monitor(ets, channel_pid) when is_pid(channel_pid) do
-    match = [{{:_, :"$1"}, [], [{:==, :"$1", {:const, channel_pid}}]}]
-    :ets.select_delete(ets, match)
-    true
-  end
-
+  @spec remove_monitor(:ets.tid(), pid() | AMQP.Channel.t() | reference()) :: true
   def remove_monitor(ets, monitor_ref) when is_reference(monitor_ref) do
     :ets.delete(ets, monitor_ref)
   end
 
-  @spec find(:ets.tid(), pid | reference()) :: nil | {reference(), pid()}
+  def remove_monitor(ets, channel_or_pid) when is_pid(channel_or_pid) or is_map(channel_or_pid) do
+    channel_pid =
+      case channel_or_pid do
+        %{pid: pid} -> pid
+        _ -> channel_or_pid
+      end
+
+    match = [{{:_, %{pid: :"$1"}}, [], [{:==, :"$1", {:const, channel_pid}}]}]
+    :ets.select_delete(ets, match)
+    true
+  end
+
+  @spec find(:ets.tid(), pid() | AMQP.Channel.t() | reference()) ::
+          nil | {reference(), AMQP.Channel.t()}
   def find(ets, monitor_ref) when is_reference(monitor_ref) do
     case :ets.lookup(ets, monitor_ref) do
       [] -> nil
@@ -36,8 +43,14 @@ defmodule ExRabbitPool.MonitorsDB do
     end
   end
 
-  def find(ets, pid) when is_pid(pid) do
-    match = [{{:"$1", :"$2"}, [{:==, :"$2", {:const, pid}}], [:"$_"]}]
+  def find(ets, channel_or_pid) when is_pid(channel_or_pid) or is_map(channel_or_pid) do
+    channel_pid =
+      case channel_or_pid do
+        %{pid: pid} -> pid
+        _ -> channel_or_pid
+      end
+
+    match = [{{:"$1", %{pid: :"$2"}}, [{:==, :"$2", {:const, channel_pid}}], [:"$_"]}]
 
     case :ets.select(ets, match) do
       [] -> nil
