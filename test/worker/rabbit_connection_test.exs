@@ -88,4 +88,12 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
       assert {:error, :disconnected} = ConnWorker.checkout_channel(pid)
     end) =~ "[Rabbit] error reason: :invalid"
   end
+
+  test "each connection worker owns its own ETS table for monitors", %{config: config} do
+    assert {:ok, pid1} = start_supervised({ConnWorker, config}, id: ConnWorker1)
+    assert {:ok, pid2} = start_supervised({ConnWorker, config}, id: ConnWorker2)
+    %{monitors_db: monitors_db1} = ConnWorker.state(pid1)
+    %{monitors_db: monitors_db2} = ConnWorker.state(pid2)
+    refute monitors_db1 == monitors_db2
+  end
 end
