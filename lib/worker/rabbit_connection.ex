@@ -2,7 +2,6 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   use GenServer
 
   require Logger
-  alias ExRabbitPool.MonitorsDB
 
   @reconnect_interval 1_000
   @default_channels 10
@@ -15,7 +14,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
             adapter: module(),
             connection: AMQP.Connection.t(),
             channels: list(AMQP.Channel.t()),
-            monitors_db: nil,
+            monitors: %{},
             config: config()
           }
 
@@ -23,7 +22,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
               connection: nil,
               channels: [],
               config: nil,
-              monitors_db: nil
+              monitors: %{}
   end
 
   ##############
@@ -78,12 +77,11 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   @impl true
   def init(config) do
     Process.flag(:trap_exit, true)
-    db = MonitorsDB.new_db()
     # split our opts from the ones passed to the amqp client
     {opts, amqp_config} = Keyword.split(config, [:adapter])
     adapter = Keyword.get(opts, :adapter, ExRabbitPool.RabbitMQ)
     send(self(), :connect)
-    {:ok, %State{adapter: adapter, config: amqp_config, monitors_db: db}}
+    {:ok, %State{adapter: adapter, config: amqp_config}}
   end
 
   @impl true
@@ -119,11 +117,11 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   def handle_call(
         :checkout_channel,
         {from_pid, _ref},
-        %{channels: [channel | rest], monitors_db: monitors_db} = state
+        %{channels: [channel | rest], monitors: monitors} = state
       ) do
     monitor_ref = Process.monitor(from_pid)
-    true = MonitorsDB.add_monitor(monitors_db, {monitor_ref, channel})
-    {:reply, {:ok, channel}, %State{state | channels: rest}}
+    new_monitors = Map.put_new(monitors, monitor_ref, channel)
+    {:reply, {:ok, channel}, %State{state | channels: rest, monitors: new_monitors}}
   end
 
   # Create a channel without linking the worker process to the channel pid, this
@@ -147,24 +145,23 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   @impl true
   def handle_cast(
         {:checkin_channel, %{pid: pid} = old_channel},
-        %{connection: conn, adapter: adapter, channels: channels, monitors_db: monitors_db} =
-          state
+        %{connection: conn, adapter: adapter, channels: channels, monitors: monitors} = state
       ) do
     # only start a new channel when checkin back a channel that isn't removed yet
     # this can happen when a channel crashed or is closed when a client holds it
     # so we get an `:EXIT` message and a `:checkin_channel` message in no given
     # order
-    if find_channel(channels, pid, monitors_db) do
+    if find_channel(channels, pid, monitors) do
       new_channels = remove_channel(channels, pid)
-      remove_monitor(monitors_db, pid)
+      new_monitors = remove_monitor(monitors, pid)
 
       case replace_channel(old_channel, adapter, conn) do
         {:ok, channel} ->
-          {:noreply, %State{state | channels: [channel | new_channels]}}
+          {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
 
         {:error, :closing} ->
           # RabbitMQ Connection is closed. nothing to do, wait for reconnection
-          {:noreply, %State{state | channels: new_channels}}
+          {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
       end
     else
       {:noreply, state}
@@ -212,45 +209,44 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     # TODO: use exponential backoff to reconnect
     # TODO: use circuit breaker to fail fast
     schedule_connect(config)
-    {:noreply, %State{state | connection: nil, channels: []}}
+    {:noreply, %State{state | connection: nil, channels: [], monitors: %{}}}
   end
 
   # Connection crashed so channels are going to crash too
   @impl true
   def handle_info(
         {:EXIT, pid, reason},
-        %{connection: nil, channels: channels, monitors_db: monitors_db} = state
+        %{connection: nil, channels: channels, monitors: monitors} = state
       ) do
     Logger.error("[Rabbit] connection lost, removing channel reason: #{inspect(reason)}")
     new_channels = remove_channel(channels, pid)
-    remove_monitor(monitors_db, pid)
-    {:noreply, %State{state | channels: new_channels}}
+    new_monitors = remove_monitor(monitors, pid)
+    {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
   end
 
   # Channel crashed/closed, Connection crashed/closed
   @impl true
   def handle_info(
         {:EXIT, pid, reason},
-        %{channels: channels, connection: conn, adapter: adapter, monitors_db: monitors_db} =
-          state
+        %{channels: channels, connection: conn, adapter: adapter, monitors: monitors} = state
       ) do
     Logger.warn("[Rabbit] channel lost reason: #{inspect(reason)}")
     # don't start a new channel if crashed channel doesn't belongs to the pool
     # anymore, this can happen when a channel crashed or is closed when a client holds it
     # so we get an `:EXIT` message and a `:checkin_channel` message in no given
     # order
-    if find_channel(channels, pid, monitors_db) do
+    if find_channel(channels, pid, monitors) do
       new_channels = remove_channel(channels, pid)
-      remove_monitor(monitors_db, pid)
+      new_monitors = remove_monitor(monitors, pid)
 
       case start_channel(adapter, conn) do
         {:ok, channel} ->
           true = Process.link(channel.pid)
-          {:noreply, %State{state | channels: [channel | new_channels]}}
+          {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
 
         {:error, :closing} ->
           # RabbitMQ Connection is closed. nothing to do, wait for reconnections
-          {:noreply, %State{state | channels: new_channels}}
+          {:noreply, %State{state | channels: new_channels, monitors: new_monitors}}
       end
     else
       {:noreply, state}
@@ -261,25 +257,23 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   @impl true
   def handle_info(
         {:DOWN, down_ref, :process, _, _},
-        %{channels: channels, monitors_db: monitors_db, adapter: adapter, connection: conn} =
-          state
+        %{channels: channels, monitors: monitors, adapter: adapter, connection: conn} = state
       ) do
-    monitors_db
-    |> MonitorsDB.find(down_ref)
+    Map.get(monitors, down_ref)
     |> case do
       nil ->
         {:noreply, state}
 
-      {^down_ref, old_channel} ->
-        MonitorsDB.remove_monitor(monitors_db, down_ref)
+      old_channel ->
+        new_monitors = Map.delete(monitors, down_ref)
 
         case replace_channel(old_channel, adapter, conn) do
           {:ok, channel} ->
-            {:noreply, %State{state | channels: [channel | channels]}}
+            {:noreply, %State{state | channels: [channel | channels], monitors: new_monitors}}
 
           {:error, :closing} ->
             # RabbitMQ Connection is closed. nothing to do, wait for reconnection
-            {:noreply, %State{state | channels: channels}}
+            {:noreply, %State{state | channels: channels, monitors: new_monitors}}
         end
     end
   end
@@ -343,21 +337,36 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     end)
   end
 
-  defp remove_monitor(monitors_db, monitor_ref_or_pid) do
-    monitors_db
-    |> MonitorsDB.find(monitor_ref_or_pid)
+  defp remove_monitor(monitors, pid) when is_pid(pid) do
+    monitors
+    |> Enum.find(fn {_, %{pid: channel_pid}} -> channel_pid == pid end)
     |> case do
       nil ->
-        true
+        monitors
 
-      {monitor_ref, _} ->
-        true = Process.demonitor(monitor_ref)
-        MonitorsDB.remove_monitor(monitors_db, monitor_ref)
+      {ref, _} ->
+        true = Process.demonitor(ref)
+        Map.delete(monitors, ref)
     end
   end
 
-  defp find_channel(channels, channel_pid, monitors_db) do
-    Enum.find(channels, &(&1.pid == channel_pid)) || MonitorsDB.find(monitors_db, channel_pid)
+  defp remove_monitor(monitors, monitor_ref) when is_reference(monitor_ref) do
+    Map.get(monitors, monitor_ref)
+    |> case do
+      nil ->
+        monitors
+
+      _ ->
+        true = Process.demonitor(monitor_ref)
+        Map.delete(monitors, monitor_ref)
+    end
+  end
+
+  defp find_channel(channels, channel_pid, monitors) do
+    Enum.find(channels, &(&1.pid == channel_pid)) ||
+      Enum.find(monitors, fn {_ref, %{pid: pid}} ->
+        pid == channel_pid
+      end)
   end
 
   defp replace_channel(old_channel, adapter, conn) do

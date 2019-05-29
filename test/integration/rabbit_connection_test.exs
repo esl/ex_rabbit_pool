@@ -74,9 +74,9 @@ defmodule ExRabbitPool.Integration.RabbitConnectionTest do
         ref = Process.monitor(client_pid)
         assert_receive {:DOWN, ^ref, :process, ^client_pid, :normal}
         assert_receive {:trace, ^pid, :receive, {:EXIT, ^channel_pid, :normal}}
-        %{channels: channels, monitors_db: monitors_db} = ConnWorker.state(pid)
+        %{channels: channels, monitors: monitors} = ConnWorker.state(pid)
         assert length(channels) == 1
-        assert Enum.empty?(:ets.tab2list(monitors_db))
+        assert Enum.empty?(monitors)
       end)
 
     assert logs =~ "[Rabbit] channel lost reason: :normal"
