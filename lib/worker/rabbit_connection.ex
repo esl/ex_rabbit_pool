@@ -120,7 +120,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         %{channels: [channel | rest], monitors: monitors} = state
       ) do
     monitor_ref = Process.monitor(from_pid)
-    new_monitors = Map.put_new(monitors, monitor_ref, channel)
+    new_monitors = Map.put_new(monitors, channel.pid, monitor_ref)
     {:reply, {:ok, channel}, %State{state | channels: rest, monitors: new_monitors}}
   end
 
@@ -144,7 +144,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   # start a new one
   @impl true
   def handle_cast(
-        {:checkin_channel, %{pid: pid} = old_channel},
+        {:checkin_channel, %{pid: pid}},
         %{connection: conn, adapter: adapter, channels: channels, monitors: monitors} = state
       ) do
     # only start a new channel when checkin back a channel that isn't removed yet
@@ -155,7 +155,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       new_channels = remove_channel(channels, pid)
       new_monitors = remove_monitor(monitors, pid)
 
-      case replace_channel(old_channel, adapter, conn) do
+      case replace_channel(pid, adapter, conn) do
         {:ok, channel} ->
           {:noreply, %State{state | channels: [channel | new_channels], monitors: new_monitors}}
 
@@ -259,15 +259,15 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         {:DOWN, down_ref, :process, _, _},
         %{channels: channels, monitors: monitors, adapter: adapter, connection: conn} = state
       ) do
-    Map.get(monitors, down_ref)
+    find_monitor(monitors, down_ref)
     |> case do
       nil ->
         {:noreply, state}
 
-      old_channel ->
-        new_monitors = Map.delete(monitors, down_ref)
+      {pid, _ref} ->
+        new_monitors = Map.delete(monitors, pid)
 
-        case replace_channel(old_channel, adapter, conn) do
+        case replace_channel(pid, adapter, conn) do
           {:ok, channel} ->
             {:noreply, %State{state | channels: [channel | channels], monitors: new_monitors}}
 
@@ -338,41 +338,36 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
   end
 
   defp remove_monitor(monitors, pid) when is_pid(pid) do
-    monitors
-    |> Enum.find(fn {_, %{pid: channel_pid}} -> channel_pid == pid end)
-    |> case do
+    case Map.get(monitors, pid) do
       nil ->
         monitors
 
-      {ref, _} ->
+      ref ->
         true = Process.demonitor(ref)
-        Map.delete(monitors, ref)
+        Map.delete(monitors, pid)
     end
   end
 
   defp remove_monitor(monitors, monitor_ref) when is_reference(monitor_ref) do
-    Map.get(monitors, monitor_ref)
+    find_monitor(monitors, monitor_ref)
     |> case do
       nil ->
         monitors
 
-      _ ->
+      {pid, _} ->
         true = Process.demonitor(monitor_ref)
-        Map.delete(monitors, monitor_ref)
+        Map.delete(monitors, pid)
     end
   end
 
   defp find_channel(channels, channel_pid, monitors) do
-    Enum.find(channels, &(&1.pid == channel_pid)) ||
-      Enum.find(monitors, fn {_ref, %{pid: pid}} ->
-        pid == channel_pid
-      end)
+    Enum.find(channels, &(&1.pid == channel_pid)) || Map.get(monitors, channel_pid)
   end
 
-  defp replace_channel(old_channel, adapter, conn) do
-    true = Process.unlink(old_channel.pid)
+  defp replace_channel(old_channel_pid, adapter, conn) do
+    true = Process.unlink(old_channel_pid)
     # omit the result
-    adapter.close_channel(old_channel)
+    adapter.close_channel(old_channel_pid)
 
     case start_channel(adapter, conn) do
       {:ok, channel} = result ->
@@ -382,5 +377,9 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
       {:error, _reason} = error ->
         error
     end
+  end
+
+  defp find_monitor(monitors, ref) do
+    Enum.find(monitors, fn {_pid, monitor_ref} -> monitor_ref == ref end)
   end
 end

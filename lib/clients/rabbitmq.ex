@@ -41,6 +41,14 @@ defmodule ExRabbitPool.RabbitMQ do
   end
 
   @impl true
+  def close_channel(pid) when is_pid(pid) do
+    case :amqp_channel.close(pid) do
+      :ok -> :ok
+      error -> {:error, error}
+    end
+  end
+
+  @impl true
   def close_channel(channel) do
     Channel.close(channel)
   end

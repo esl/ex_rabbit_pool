@@ -35,8 +35,7 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     pid = start_supervised!({ConnWorker, new_config})
     assert {:ok, %{pid: pid} = channel} = ConnWorker.checkout_channel(pid)
     %{monitors: monitors} = ConnWorker.state(pid)
-    assert [{ref, ^channel}] = Map.to_list(monitors)
-    assert is_reference(ref)
+    assert Map.get(monitors, pid) |> is_reference()
   end
 
   test "return :out_of_channels when all channels are holded by clients", %{config: config} do
