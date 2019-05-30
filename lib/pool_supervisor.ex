@@ -25,8 +25,7 @@ defmodule ExRabbitPool.PoolSupervisor do
         :poolboy.child_spec(pool_id, pool_config, rabbitmq_config)
       end
 
-    # if the pool of rabbit connection crashes, try to setup the queues again
-    opts = [strategy: :rest_for_one]
+    opts = [strategy: :one_for_one]
     Supervisor.init(children, opts)
   end
 end

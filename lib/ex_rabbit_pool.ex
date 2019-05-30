@@ -73,6 +73,7 @@ defmodule ExRabbitPool do
 
   @spec create_queue_with_bind(
           module(),
+          atom(),
           AMQP.Basic.queue(),
           AMQP.Basic.exchange(),
           keyword()
