@@ -11,7 +11,15 @@ defmodule ExRabbitPool.RabbitMQ do
   end
 
   @impl true
-  def consume(%Channel{} = channel, queue, consumer_pid \\ nil, options \\ []) do
+  def consume(channel, queue, consumer_pid \\ nil, options \\ [])
+
+  def consume(%Channel{} = channel, queue, consumer_pid, [prefetch_count: prefetch_count] = options) do
+    Logger.warn("[ExRabbitPool.RabbitMQ.consume] queue: #{inspect queue} setting prefetch_count to #{prefetch_count}")
+    :ok = Basic.qos(channel, prefetch_count: prefetch_count)
+    Basic.consume(channel, queue, consumer_pid, options)
+  end
+
+  def consume(%Channel{} = channel, queue, consumer_pid, options) do
     Basic.consume(channel, queue, consumer_pid, options)
   end
 

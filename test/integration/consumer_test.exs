@@ -1,6 +1,7 @@
 defmodule ExRabbitPool.ConsumerTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
   alias ExRabbitPool.Worker.SetupQueue
   alias ExRabbitPool.RabbitMQ
   alias AMQP.Queue
@@ -86,15 +87,19 @@ defmodule ExRabbitPool.ConsumerTest do
   end
 
   test "should be able to consume messages out of rabbitmq", %{pool_id: pool_id, queue: queue} do
-    pid = start_supervised!({TestConsumer, pool_id: pool_id, queue: queue})
-    :erlang.trace(pid, true, [:receive])
+    logs =
+      capture_log(fn ->
+        pid = start_supervised!({TestConsumer, pool_id: pool_id, queue: queue, options: [prefetch_count: 19]})
+        :erlang.trace(pid, true, [:receive])
 
-    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
-      assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
-      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
-      {:ok, result} = Queue.status(channel, queue)
-      assert result == %{consumer_count: 1, message_count: 0, queue: queue}
-    end)
+        ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
+          assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
+          assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
+          {:ok, result} = Queue.status(channel, queue)
+          assert result == %{consumer_count: 1, message_count: 0, queue: queue}
+        end)
+      end)
+    assert logs =~ "[ExRabbitPool.RabbitMQ.consume] queue: #{inspect queue} setting prefetch_count to 19"
   end
 
   test "should be able to consume messages out of rabbitmq with default consumer", %{
