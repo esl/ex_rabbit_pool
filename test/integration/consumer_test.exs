@@ -109,9 +109,6 @@ defmodule ExRabbitPool.ConsumerTest do
       assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
       assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
 
-      assert_receive {:io_request, ^pid, _,
-                      {:put_chars, :unicode, "[*] RabbitMQ message received: Hello Consumer!\n"}}
-
       {:ok, result} = Queue.status(channel, queue)
       assert result == %{consumer_count: 1, message_count: 0, queue: queue}
     end)
