@@ -166,7 +166,7 @@ defmodule ExRabbitPool.Consumer do
       # process and monitors it handle crashes and reconnections
       defp handle_channel_checkout(
              {:ok, %{pid: channel_pid} = channel},
-             %{config: config, queue: queue, adapter: adapter, config: config} = state
+             %{config: config, queue: queue, adapter: adapter} = state
            ) do
         config = Keyword.get(config, :options, [])
 
