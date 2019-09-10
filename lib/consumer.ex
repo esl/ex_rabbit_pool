@@ -194,7 +194,6 @@ defmodule ExRabbitPool.Consumer do
 
       def basic_deliver(%{adapter: adapter, channel: channel}, payload, %{delivery_tag: tag}) do
         :ok = adapter.ack(channel, tag)
-        IO.puts("[*] RabbitMQ message received: #{payload}")
       end
 
       def basic_consume_ok(_state, _consumer_tag), do: :ok
