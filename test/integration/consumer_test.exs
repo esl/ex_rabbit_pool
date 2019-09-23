@@ -102,7 +102,6 @@ defmodule ExRabbitPool.ConsumerTest do
     queue: queue
   } do
     pid = start_supervised!({TestDefaultConsumer, pool_id: pool_id, queue: queue})
-    Process.group_leader(pid, self())
     :erlang.trace(pid, true, [:receive])
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
