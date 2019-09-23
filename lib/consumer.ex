@@ -62,22 +62,29 @@ defmodule ExRabbitPool.Consumer do
         adapter = Keyword.get(opts, :adapter, ExRabbitPool.RabbitMQ)
         pool_id = Keyword.fetch!(opts, :pool_id)
         queue = Keyword.fetch!(opts, :queue)
-        send(self(), :connect)
 
-        {:ok,
-         %State{
-           pool_id: pool_id,
-           queue: queue,
-           adapter: adapter,
-           config: consumer_config
-         }}
+        state = %State{
+          pool_id: pool_id,
+          queue: queue,
+          adapter: adapter,
+          config: consumer_config
+        }
+
+        {:ok, state, {:continue, :connect}}
       end
+
+      @impl true
+      def handle_continue(:connect, state), do: do_connect(state)
+
+      @impl true
+      def handle_info(:connect, state), do: do_connect(state)
 
       # Gets a connection worker out of the connection pool, if there is one available
       # takes a channel out of it channel pool, if there is one available subscribe
       # itself as a consumer process.
-      @impl true
-      def handle_info(:connect, %{pool_id: pool_id} = state) do
+      def do_connect(state) do
+        %{pool_id: pool_id} = state
+
         pool_id
         |> ExRabbitPool.get_connection_worker()
         |> ExRabbitPool.checkout_channel()
