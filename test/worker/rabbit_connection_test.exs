@@ -45,7 +45,7 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     assert {:error, :out_of_channels} = ConnWorker.checkout_channel(pid)
     %{channels: channels, monitors: monitors} = ConnWorker.state(pid)
     assert Enum.empty?(channels)
-    assert Map.size(monitors) == 1
+    assert Kernel.map_size(monitors) == 1
     assert :ok = ConnWorker.checkin_channel(pid, channel)
   end
 
@@ -55,7 +55,7 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     pid = start_supervised!({ConnWorker, config})
     assert {:ok, channel} = ConnWorker.checkout_channel(pid)
     %{monitors: monitors} = ConnWorker.state(pid)
-    assert Map.size(monitors) == 1
+    assert Kernel.map_size(monitors) == 1
     assert :ok = ConnWorker.checkin_channel(pid, channel)
     %{monitors: monitors} = ConnWorker.state(pid)
     assert Enum.empty?(monitors)

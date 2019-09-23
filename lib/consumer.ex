@@ -173,7 +173,7 @@ defmodule ExRabbitPool.Consumer do
       # process and monitors it handle crashes and reconnections
       defp handle_channel_checkout(
              {:ok, %{pid: channel_pid} = channel},
-             %{config: config, queue: queue, adapter: adapter, config: config} = state
+             %{config: config, queue: queue, adapter: adapter} = state
            ) do
         config = Keyword.get(config, :options, [])
 
@@ -201,7 +201,6 @@ defmodule ExRabbitPool.Consumer do
 
       def basic_deliver(%{adapter: adapter, channel: channel}, payload, %{delivery_tag: tag}) do
         :ok = adapter.ack(channel, tag)
-        IO.puts("[*] RabbitMQ message received: #{payload}")
       end
 
       def basic_consume_ok(_state, _consumer_tag), do: :ok

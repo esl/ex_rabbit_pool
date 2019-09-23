@@ -102,15 +102,11 @@ defmodule ExRabbitPool.ConsumerTest do
     queue: queue
   } do
     pid = start_supervised!({TestDefaultConsumer, pool_id: pool_id, queue: queue})
-    Process.group_leader(pid, self())
     :erlang.trace(pid, true, [:receive])
 
     ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
       assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
       assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
-
-      assert_receive {:io_request, ^pid, _,
-                      {:put_chars, :unicode, "[*] RabbitMQ message received: Hello Consumer!\n"}}
 
       {:ok, result} = Queue.status(channel, queue)
       assert result == %{consumer_count: 1, message_count: 0, queue: queue}
