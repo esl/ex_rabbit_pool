@@ -11,9 +11,7 @@ defmodule ExRabbitPool.RabbitMQ do
   end
 
   @impl true
-  def consume(channel, queue, consumer_pid \\ nil, options \\ [])
-
-  def consume(%Channel{} = channel, queue, consumer_pid, options) do
+  def consume(%Channel{} = channel, queue, consumer_pid \\ nil, options \\ []) do
     Basic.consume(channel, queue, consumer_pid, options)
   end
 
