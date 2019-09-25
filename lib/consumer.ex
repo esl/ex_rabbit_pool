@@ -170,7 +170,7 @@ defmodule ExRabbitPool.Consumer do
            ) do
         config = Keyword.get(config, :options, [])
 
-        :ok = adapter.qos(channel, queue, config)
+        :ok = adapter.qos(channel, config)
 
         case adapter.consume(channel, queue, self(), config) do
           {:ok, consumer_tag} ->

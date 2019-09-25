@@ -105,17 +105,7 @@ defmodule ExRabbitPool.RabbitMQ do
   end
 
   @impl true
-  def qos(channel, queue, options \\ [])
-
-  def qos(_channel, _queue, []), do: :ok
-
-  def qos(channel, queue, prefetch_count: prefetch_count) do
-    Logger.warn(
-      "[ExRabbitPool.RabbitMQ.consume] queue: #{inspect(queue)} setting prefetch_count to #{
-        prefetch_count
-      }"
-    )
-
-    Basic.qos(channel, prefetch_count: prefetch_count)
+  def qos(channel, options \\ []) do
+    Basic.qos(channel, options)
   end
 end

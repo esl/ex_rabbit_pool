@@ -73,7 +73,7 @@ defmodule ExRabbitPool.FakeRabbitMQ do
   end
 
   @impl true
-  def qos(_channel, _queue, _options \\ []) do
+  def qos(_channel, _options \\ []) do
     :ok
   end
 end

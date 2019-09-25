@@ -17,6 +17,6 @@ defmodule ExRabbitPool.Clients.Adapter do
               :ok | AMQP.Basic.error()
   @callback declare_exchange(AMQP.Channel.t(), AMQP.Basic.exchange(), keyword()) ::
               :ok | AMQP.Basic.error()
-  @callback qos(AMQP.Channel.t(), AMQP.Basic.queue(), keyword()) ::
+  @callback qos(AMQP.Channel.t(), keyword()) ::
               :ok | AMQP.Basic.error()
 end
