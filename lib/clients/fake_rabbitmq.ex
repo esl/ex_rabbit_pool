@@ -71,4 +71,9 @@ defmodule ExRabbitPool.FakeRabbitMQ do
   def queue_bind(_channel, _queue, _exchange, _options \\ []) do
     :ok
   end
+
+  @impl true
+  def qos(_channel, _queue, _options \\ []) do
+    :ok
+  end
 end
