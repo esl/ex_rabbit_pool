@@ -1,14 +1,22 @@
 defmodule ExRabbitPool.ConsumerTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
   alias ExRabbitPool.Worker.SetupQueue
   alias ExRabbitPool.RabbitMQ
   alias AMQP.Queue
+  require Logger
 
   @moduletag :integration
 
   defmodule TestConsumer do
     use ExRabbitPool.Consumer
+
+    def setup_channel(%{adapter: adapter, config: config}, channel) do
+      config = Keyword.get(config, :options, [])
+      Logger.warn("Setting up channel with options: #{inspect(config)}")
+      adapter.qos(channel, config)
+    end
 
     def basic_deliver(%{adapter: adapter, channel: channel}, _payload, %{delivery_tag: tag}) do
       :ok = adapter.ack(channel, tag)
@@ -20,6 +28,7 @@ defmodule ExRabbitPool.ConsumerTest do
 
     def setup_channel(%{adapter: adapter, config: config}, channel) do
       config = Keyword.get(config, :options, [])
+      Logger.warn("Setting up channel with options: #{inspect(config)}")
       adapter.qos(channel, config)
     end
 
@@ -104,43 +113,53 @@ defmodule ExRabbitPool.ConsumerTest do
   end
 
   test "should be able to consume messages out of rabbitmq", %{pool_id: pool_id, queue: queue} do
-    pid =
-      start_supervised!(
-        {TestConsumer, pool_id: pool_id, queue: queue, options: [prefetch_count: 19]}
-      )
+    logs =
+      capture_log(fn ->
+        pid =
+          start_supervised!(
+            {TestConsumer, pool_id: pool_id, queue: queue, options: [prefetch_count: 19]}
+          )
 
-    :erlang.trace(pid, true, [:receive])
+        :erlang.trace(pid, true, [:receive])
 
-    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
-      assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
-      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
-      {:ok, result} = Queue.status(channel, queue)
-      assert result == %{consumer_count: 1, message_count: 0, queue: queue}
-    end)
+        ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
+          assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer!")
+          assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer!", _}}, 1000
+          {:ok, result} = Queue.status(channel, queue)
+          assert result == %{consumer_count: 1, message_count: 0, queue: queue}
+        end)
+      end)
+
+    assert logs =~ "Setting up channel with options: [prefetch_count: 19]"
   end
 
   test "consumable messages should not exceed prefetch_count", %{pool_id: pool_id, queue: queue} do
-    pid =
-      start_supervised!(
-        {TestConsumerDelayedAck, pool_id: pool_id, queue: queue, options: [prefetch_count: 2]}
-      )
+    logs =
+      capture_log(fn ->
+        pid =
+          start_supervised!(
+            {TestConsumerDelayedAck, pool_id: pool_id, queue: queue, options: [prefetch_count: 2]}
+          )
 
-    :erlang.trace(pid, true, [:receive])
+        :erlang.trace(pid, true, [:receive])
 
-    ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
-      assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer 1!")
-      assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer 2!")
-      assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer 3!")
-      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer 1!", _}}, 1000
-      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer 2!", _}}, 1000
-      refute_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer 3!", _}}, 1000
+        ExRabbitPool.with_channel(pool_id, fn {:ok, channel} ->
+          assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer 1!")
+          assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer 2!")
+          assert :ok = RabbitMQ.publish(channel, "#{queue}_exchange", "", "Hello Consumer 3!")
+          assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer 1!", _}}, 1000
+          assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer 2!", _}}, 1000
+          refute_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer 3!", _}}, 1000
 
-      assert :ok ==
-               wait_for(fn ->
-                 {:ok, result} = Queue.status(channel, queue)
-                 result == %{consumer_count: 1, message_count: 1, queue: queue}
-               end)
-    end)
+          assert :ok ==
+                   wait_for(fn ->
+                     {:ok, result} = Queue.status(channel, queue)
+                     result == %{consumer_count: 1, message_count: 1, queue: queue}
+                   end)
+        end)
+      end)
+
+    assert logs =~ "Setting up channel with options: [prefetch_count: 2]"
   end
 
   test "should be able to consume messages out of rabbitmq with default consumer", %{
