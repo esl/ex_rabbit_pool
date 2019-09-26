@@ -168,15 +168,11 @@ defmodule ExRabbitPool.Consumer do
              {:ok, %{pid: channel_pid} = channel},
              %{config: config, queue: queue, adapter: adapter} = state
            ) do
-        config = Keyword.get(config, :options, [])
-
-        :ok = adapter.qos(channel, config)
-
-        case adapter.consume(channel, queue, self(), config) do
-          {:ok, consumer_tag} ->
-            ref = Process.monitor(channel_pid)
-            {:noreply, %State{state | channel: channel, monitor: ref, consumer_tag: consumer_tag}}
-
+        with :ok <- setup_channel(state, channel),
+             {:ok, consumer_tag} <- adapter.consume(channel, queue, self(), config) do
+          ref = Process.monitor(channel_pid)
+          {:noreply, %State{state | channel: channel, monitor: ref, consumer_tag: consumer_tag}}
+        else
           {:error, reason} ->
             schedule_connect(config)
             {:noreply, %State{state | channel: nil, consumer_tag: nil}}
@@ -199,10 +195,12 @@ defmodule ExRabbitPool.Consumer do
         IO.puts("[*] RabbitMQ message received: #{payload}")
       end
 
+      def setup_channel(_state, _channel), do: :ok
       def basic_consume_ok(_state, _consumer_tag), do: :ok
       def basic_cancel(_state, _consumer_tag, _no_wait), do: :ok
       def basic_cancel_ok(_state, _consumer_tag), do: :ok
 
+      defoverridable setup_channel: 2
       defoverridable basic_deliver: 3
       defoverridable basic_consume_ok: 2
       defoverridable basic_cancel: 3

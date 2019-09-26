@@ -18,6 +18,11 @@ defmodule ExRabbitPool.ConsumerTest do
   defmodule TestConsumerDelayedAck do
     use ExRabbitPool.Consumer
 
+    def setup_channel(%{adapter: adapter, config: config}, channel) do
+      config = Keyword.get(config, :options, [])
+      adapter.qos(channel, config)
+    end
+
     def basic_deliver(%{adapter: adapter, channel: channel}, _payload, %{delivery_tag: tag}) do
       Task.async(fn ->
         Process.sleep(3000)
