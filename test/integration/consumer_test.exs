@@ -23,7 +23,7 @@ defmodule ExRabbitPool.ConsumerTest do
     end
   end
 
-  defmodule TestConsumerDelayedAck do
+  defmodule TestConsumerNoAck do
     use ExRabbitPool.Consumer
 
     def setup_channel(%{adapter: adapter, config: config}, channel) do
@@ -32,12 +32,7 @@ defmodule ExRabbitPool.ConsumerTest do
       adapter.qos(channel, config)
     end
 
-    def basic_deliver(%{adapter: adapter, channel: channel}, _payload, %{delivery_tag: tag}) do
-      Task.async(fn ->
-        Process.sleep(3000)
-        adapter.ack(channel, tag)
-      end)
-
+    def basic_deliver(_state, _payload, _meta) do
       :ok
     end
   end
@@ -138,7 +133,7 @@ defmodule ExRabbitPool.ConsumerTest do
       capture_log(fn ->
         pid =
           start_supervised!(
-            {TestConsumerDelayedAck, pool_id: pool_id, queue: queue, options: [prefetch_count: 2]}
+            {TestConsumerNoAck, pool_id: pool_id, queue: queue, options: [prefetch_count: 2]}
           )
 
         :erlang.trace(pid, true, [:receive])
@@ -151,11 +146,8 @@ defmodule ExRabbitPool.ConsumerTest do
           assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer 2!", _}}, 1000
           refute_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello Consumer 3!", _}}, 1000
 
-          assert :ok ==
-                   wait_for(fn ->
-                     {:ok, result} = Queue.status(channel, queue)
-                     result == %{consumer_count: 1, message_count: 1, queue: queue}
-                   end)
+          {:ok, result} = Queue.status(channel, queue)
+          assert result == %{consumer_count: 1, message_count: 1, queue: queue}
         end)
       end)
 
