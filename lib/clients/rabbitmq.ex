@@ -103,4 +103,9 @@ defmodule ExRabbitPool.RabbitMQ do
         {:error, error}
     end
   end
+
+  @impl true
+  def qos(channel, options \\ []) do
+    Basic.qos(channel, options)
+  end
 end
