@@ -10,7 +10,7 @@ by adding `ex_rabbit_pool` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_rabbit_pool, "~> 1.0.2"}
+    {:ex_rabbit_pool, "~> 1.0.3"}
   ]
 end
 ```
