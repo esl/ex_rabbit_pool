@@ -4,7 +4,7 @@ A RabbitMQ connection pooling library written in Elixir
 
 ## Is this lib still maintained?
 
-Yes!, but this is not yet another amqp framework, the whole purpose of this lib is to implement just the pooling side of rabbitmq connections which is now **complete**, we are not planning to add any new features to it, but if you think there is something left in this regards please don't hesitate to create a ticket so we can discuss it.
+Yes!, but this is not yet another amqp framework, the whole purpose of this lib is to implement just the pooling side of rabbitmq connections which is now **feature complete**, we still need to finish some TODOs and improvements inside the lib but we are not planning to add any new features to it, but if you think there is something left in this regards please don't hesitate to create a ticket so we can discuss it.
 
 ## Installation
 
