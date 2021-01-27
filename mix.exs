@@ -36,7 +36,7 @@ defmodule BugsBunny.MixProject do
 
   defp deps do
     [
-      {:amqp, "~> 1.1"},
+      {:amqp, "~> 2.0"},
       {:poolboy, "~> 1.5"},
       {:credo, "~> 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.18", only: :dev, runtime: false},
