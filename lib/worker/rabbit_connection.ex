@@ -181,7 +181,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         {:noreply, state}
 
       {:ok, connection} ->
-        Logger.info("[Rabbit] connected")
+        Logger.debug("[Rabbit] connected")
         %{pid: pid} = connection
         # link itself to the connection `pid` to handle connection
         # errors and spawn as many channels as needed based on config
@@ -304,7 +304,7 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     if Process.alive?(connection.pid) do
       case client.open_channel(connection) do
         {:ok, _channel} = result ->
-          Logger.info("[Rabbit] channel connected")
+          Logger.debug("[Rabbit] channel connected")
           result
 
         {:error, reason} = error ->
