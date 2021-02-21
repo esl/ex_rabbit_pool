@@ -62,7 +62,7 @@ defmodule ExRabbitPool.RabbitMQ do
   def declare_queue(channel, queue \\ "", options \\ []) do
     case Queue.declare(channel, queue, options) do
       {:ok, res} ->
-        Logger.info("queue: #{queue} successfully declared")
+        Logger.debug("queue: #{queue} successfully declared")
         {:ok, res}
 
       {:error, reason} ->
@@ -80,7 +80,7 @@ defmodule ExRabbitPool.RabbitMQ do
 
     case Exchange.declare(channel, exchange, type, options) do
       :ok ->
-        Logger.info("exchange #{exchange} successfully declared")
+        Logger.debug("exchange #{exchange} successfully declared")
         :ok
 
       {:error, error} ->
@@ -96,7 +96,7 @@ defmodule ExRabbitPool.RabbitMQ do
   def queue_bind(channel, queue, exchange, options) do
     case Queue.bind(channel, queue, exchange, options) do
       :ok ->
-        Logger.info("#{queue} successfully bound to #{exchange}")
+        Logger.debug("#{queue} successfully bound to #{exchange}")
         :ok
 
       {:error, error} ->
