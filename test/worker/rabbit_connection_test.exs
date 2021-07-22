@@ -24,6 +24,14 @@ defmodule ExRabbitPool.Worker.RabbitConnectionTest do
     assert length(channels) == 5
   end
 
+  test "creates a connection using uri", %{config: config} do
+    config = Keyword.put(config, :uri, "amqp://guest:guest@localhost:5672/")
+    pid = start_supervised!({ConnWorker, config})
+    %{channels: channels, connection: connection} = ConnWorker.state(pid)
+    refute is_nil(connection)
+    assert length(channels) == 10
+  end
+
   test "creates a pool of channels by default", %{config: config} do
     pid = start_supervised!({ConnWorker, Keyword.delete(config, :channels)})
     %{channels: channels} = ConnWorker.state(pid)
