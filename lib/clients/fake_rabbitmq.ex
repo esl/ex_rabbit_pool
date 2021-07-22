@@ -34,12 +34,16 @@ defmodule ExRabbitPool.FakeRabbitMQ do
   end
 
   @impl true
-  def open_connection(config) do
+  def open_connection(config) when is_list(config) do
     if Keyword.get(config, :queue) == "error.queue" do
       {:error, :invalid}
     else
       {:ok, %Connection{pid: self()}}
     end
+  end
+
+  def open_connection(_config) do
+    {:ok, %Connection{pid: self()}}
   end
 
   @impl true
