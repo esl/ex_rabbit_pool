@@ -80,8 +80,10 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
     # split our opts from the ones passed to the amqp client
     {opts, amqp_config} = Keyword.split(config, [:adapter])
     adapter = Keyword.get(opts, :adapter, ExRabbitPool.RabbitMQ)
+    uri = amqp_config[:uri]
+
     send(self(), :connect)
-    {:ok, %State{adapter: adapter, config: amqp_config}}
+    {:ok, %State{adapter: adapter, config: uri || amqp_config}}
   end
 
   @impl true
@@ -188,7 +190,10 @@ defmodule ExRabbitPool.Worker.RabbitConnection do
         # defaults to `1_000`
         true = Process.link(pid)
 
-        num_channels = Keyword.get(config, :channels, @default_channels)
+        num_channels =
+          if Keyword.keyword?(config),
+            do: Keyword.get(config, :channels, @default_channels),
+            else: @default_channels
 
         channels =
           do_times(num_channels, 0, fn ->
