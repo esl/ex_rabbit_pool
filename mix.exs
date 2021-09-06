@@ -30,13 +30,13 @@ defmodule BugsBunny.MixProject do
   def application do
     [
       # https://github.com/pma/amqp/issues/90
-      extra_applications: [:lager, :logger, :amqp]
+      extra_applications: [:logger, :amqp]
     ]
   end
 
   defp deps do
     [
-      {:amqp, "~> 1.1"},
+      {:amqp, "~> 1.3 or ~> 2.0 or ~> 3.0"},
       {:poolboy, "~> 1.5"},
       {:credo, "~> 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.18", only: :dev, runtime: false},
