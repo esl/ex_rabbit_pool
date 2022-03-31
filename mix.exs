@@ -1,13 +1,17 @@
-defmodule BugsBunny.MixProject do
+defmodule ExRabbitPool.MixProject do
   use Mix.Project
+
+  @version "1.1.0"
+  @url "https://github.com/esl/ex_rabbit_pool"
 
   def project do
     [
       app: :ex_rabbit_pool,
-      version: "1.0.3",
+      version: @version,
       elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      docs: docs(),
       test_coverage: [tool: ExCoveralls],
       description: "RabbitMQ connection pool library",
       package: package(),
@@ -27,20 +31,29 @@ defmodule BugsBunny.MixProject do
     ]
   end
 
+  def docs do
+    [
+      main: "README",
+      source_url: @url,
+      source_ref: "v#{@version}",
+      extras: ["README.md"]
+    ]
+  end
+
   def application do
     [
       # https://github.com/pma/amqp/issues/90
-      extra_applications: [:lager, :logger, :amqp]
+      extra_applications: [:logger, :amqp]
     ]
   end
 
   defp deps do
     [
-      {:amqp, "~> 1.1"},
+      {:amqp, "~> 3.1"},
       {:poolboy, "~> 1.5"},
-      {:credo, "~> 1.0.0", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.18", only: :dev, runtime: false},
-      {:excoveralls, "~> 0.10.4", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.20", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.14", only: [:dev, :test], runtime: false}
     ]
   end
 end
